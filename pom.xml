@@ -15,7 +15,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <parent>
     <groupId>org.apache</groupId>
@@ -37,10 +38,15 @@
     <maven.compiler.target>1.8</maven.compiler.target>
 
     <activemq-version>5.14.3</activemq-version>
+    <artemis-version>2.0.0-SNAPSHOT</artemis-version>
 
     <!-- Test dependency versions -->
     <junit-version>4.12</junit-version>
     <mockito-version>1.10.19</mockito-version>
+    
+    <!-- Maven Plugins -->
+    <jaxb2-maven-plugin-version>2.2</jaxb2-maven-plugin-version>
+    <build-helper-plugin-version>3.0.0</build-helper-plugin-version>
   </properties>
 
   <url>http://activemq.apache.org</url>
@@ -61,6 +67,21 @@
 
   <dependencyManagement>
     <dependencies>
+
+      <!-- ActiveMQ -->
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>activemq-kahadb-store</artifactId>
+        <version>${activemq-version}</version>
+      </dependency>
+
+      <!-- Artemis -->
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>artemis-cli</artifactId>
+        <version>${artemis-version}</version>
+      </dependency>
+
       <!-- Test dependencies -->
       <dependency>
         <groupId>junit</groupId>
