@@ -23,7 +23,7 @@
 
     <!-- Customize the package name -->
     <schemaBindings>
-      <package name="org.apache.activemq.schema" />
+      <package name="org.apache.activemq.cli.schema" />
     </schemaBindings>
 
     <!-- There is already a value field so map the value attribute to a new name -->

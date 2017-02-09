@@ -45,8 +45,9 @@
     <mockito-version>1.10.19</mockito-version>
     
     <!-- Maven Plugins -->
-    <jaxb2-maven-plugin-version>2.2</jaxb2-maven-plugin-version>
+    <cxf-xjc-plugin-version>3.0.1</cxf-xjc-plugin-version>
     <build-helper-plugin-version>3.0.0</build-helper-plugin-version>
+    <jaxb2-rich-contract-plugin-version>1.18.0</jaxb2-rich-contract-plugin-version>
   </properties>
 
   <url>http://activemq.apache.org</url>

@@ -97,44 +97,32 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>jaxb2-maven-plugin</artifactId>
-        <version>${jaxb2-maven-plugin-version}</version>
+        <groupId>org.apache.cxf</groupId>
+        <artifactId>cxf-xjc-plugin</artifactId>
+        <version>${cxf-xjc-plugin-version}</version>
         <executions>
           <execution>
-            <id>xjc</id>
+            <id>compile-xsd</id>
             <phase>generate-sources</phase>
             <goals>
-              <goal>xjc</goal>
+              <goal>xsdtojava</goal>
             </goals>
           </execution>
         </executions>
         <configuration>
-          <xjbSources>
-            <xjbSource>${project.build.directory}/artemis-cli/schema/artemis-import-export.xjb</xjbSource>
-          </xjbSources>
-          <sources>
-            <source>${project.build.directory}/artemis-cli/schema/artemis-import-export.xsd</source>
-          </sources>
-          <packageName>org.apache.activemq.cli.schema</packageName>
+          <extensions>
+            <extension>net.codesup.util:jaxb2-rich-contract-plugin:${jaxb2-rich-contract-plugin-version}</extension>
+          </extensions>
+          <xsdOptions>
+            <xsdOption>
+              <xsd>${project.build.directory}/artemis-cli/schema/artemis-import-export.xsd</xsd>
+              <bindingFile>${project.build.directory}/artemis-cli/schema/artemis-import-export.xjb</bindingFile>
+              <extensionArgs>
+                <extensionArg>-Xfluent-builder</extensionArg>
+              </extensionArgs>
+            </xsdOption>
+          </xsdOptions>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>generate-sources</phase>
-            <goals>
-              <goal>add-source</goal>
-            </goals>
-            <configuration>
-              <sources>
-                <source>${project.build.directory}/generated-sources/jaxb</source>
-              </sources>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>
