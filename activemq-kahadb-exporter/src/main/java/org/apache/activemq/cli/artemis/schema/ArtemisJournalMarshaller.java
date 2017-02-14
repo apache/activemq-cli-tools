@@ -29,6 +29,7 @@ import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.apache.activemq.artemis.cli.commands.tools.XmlDataConstants;
 import org.apache.activemq.cli.schema.ActivemqJournalType;
 import org.apache.activemq.cli.schema.AddressBindingType;
 import org.apache.activemq.cli.schema.MessageType;
@@ -39,12 +40,6 @@ import org.apache.activemq.cli.schema.QueueBindingType;
  * Marshaller class to stream to a file
  */
 public class ArtemisJournalMarshaller {
-
-    public final static String MESSAGE_ELEMENT = "message";
-    public final static String MESSAGES_ELEMENT = "messages";
-    public final static String BINDINGS_ELEMENT = "bindings";
-    public final static String ADDRESS_BINDING_ELEMENT = "address-binding";
-    public final static String QUEUE_BINDING_ELEMENT = "queue-binding";
 
     private final ObjectFactory factory = new ObjectFactory();
     private final JAXBContext context;
@@ -77,11 +72,11 @@ public class ArtemisJournalMarshaller {
     }
 
     public void appendMessagesElement() throws XMLStreamException {
-        xmlWriter.writeStartElement(MESSAGES_ELEMENT);
+        xmlWriter.writeStartElement(XmlDataConstants.MESSAGES_PARENT);
     }
 
     public void appendBindingsElement() throws XMLStreamException {
-        xmlWriter.writeStartElement(BINDINGS_ELEMENT);
+        xmlWriter.writeStartElement(XmlDataConstants.BINDINGS_PARENT);
     }
 
     public void appendEndElement() throws XMLStreamException {
@@ -89,15 +84,15 @@ public class ArtemisJournalMarshaller {
     }
 
     public void appendMessage(final MessageType message) throws JAXBException {
-        marshaller.marshal(wrap(MESSAGE_ELEMENT, message), xmlWriter);
+        marshaller.marshal(wrap(XmlDataConstants.MESSAGES_CHILD, message), xmlWriter);
     }
 
     public void appendBinding(final AddressBindingType addressBinding) throws JAXBException {
-        marshaller.marshal(wrap(ADDRESS_BINDING_ELEMENT, addressBinding), xmlWriter);
+        marshaller.marshal(wrap(XmlDataConstants.ADDRESS_BINDINGS_CHILD, addressBinding), xmlWriter);
     }
 
     public void appendBinding(final QueueBindingType queueBinding) throws JAXBException {
-        marshaller.marshal(wrap(QUEUE_BINDING_ELEMENT, queueBinding), xmlWriter);
+        marshaller.marshal(wrap(XmlDataConstants.QUEUE_BINDINGS_CHILD, queueBinding), xmlWriter);
     }
 
     @SuppressWarnings("unchecked")

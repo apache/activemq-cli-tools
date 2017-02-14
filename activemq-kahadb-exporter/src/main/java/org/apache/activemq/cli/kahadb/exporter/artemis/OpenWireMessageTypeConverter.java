@@ -18,10 +18,9 @@ package org.apache.activemq.cli.kahadb.exporter.artemis;
 
 import javax.jms.JMSException;
 
-import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.cli.commands.tools.XmlDataExporterUtil;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireMessageConverter;
 import org.apache.activemq.artemis.core.server.ServerMessage;
-import org.apache.activemq.artemis.utils.Base64;
 import org.apache.activemq.cli.kahadb.exporter.OpenWireExportConverter;
 import org.apache.activemq.cli.schema.BodyType;
 import org.apache.activemq.cli.schema.MessageType;
@@ -33,14 +32,6 @@ import org.apache.activemq.command.Message;
 import org.apache.activemq.openwire.OpenWireFormat;
 
 public class OpenWireMessageTypeConverter implements OpenWireExportConverter<MessageType> {
-
-    static final String MESSAGE_TIMESTAMP = "timestamp";
-    static final String DEFAULT_TYPE_PRETTY = "default";
-    static final String BYTES_TYPE_PRETTY = "bytes";
-    static final String MAP_TYPE_PRETTY = "map";
-    static final String OBJECT_TYPE_PRETTY = "object";
-    static final String STREAM_TYPE_PRETTY = "stream";
-    static final String TEXT_TYPE_PRETTY = "text";
 
     final OpenWireMessageConverter converter = new OpenWireMessageConverter(new OpenWireFormat());
 
@@ -59,8 +50,8 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
                     Object value = serverMessage.getObjectProperty(key);
                     propertiesType.getProperty().add(PropertyType.builder()
                             .withName(key.toString())
-                            .withValueAttribute(convertPropertyValue(value))
-                            .withType(convertPropertyType(value.getClass()))
+                            .withValueAttribute(XmlDataExporterUtil.convertProperty(value))
+                            .withType(XmlDataExporterUtil.getPropertyType(value))
                             .build());
                 });
                 messageType.setProperties(propertiesType);
@@ -76,7 +67,6 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
     }
 
     private QueuesType convertQueue(final Message message) throws JMSException {
-
         return QueuesType.builder()
                 .withQueue(QueueType.builder()
                         .withName(message.getDestination().getPhysicalName()).build())
@@ -84,10 +74,7 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
     }
 
     private BodyType convertBody(final ServerMessage serverMessage) throws Exception {
-        int size = serverMessage.getEndOfBodyPosition() - serverMessage.getBodyBuffer().readerIndex();
-        byte[] buffer = new byte[size];
-        serverMessage.getBodyBuffer().readBytes(buffer);
-        String value = encode(buffer);
+        String value = XmlDataExporterUtil.encodeMessageBody(serverMessage);
 
         //requires CDATA
         return BodyType.builder()
@@ -95,46 +82,13 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
             .build();
     }
 
-    private String convertPropertyValue(Object value) {
-        if (value instanceof byte[]) {
-            return encode((byte[]) value).toString();
-        }
-        return value.toString();
-    }
-
     private MessageType convertAttributes(final ServerMessage message) {
         MessageType messageType = MessageType.builder()
                 .withId(message.getMessageID())
                 .withTimestamp(message.getTimestamp())
-                .withPriority(message.getPriority()).build();
+                .withPriority(message.getPriority())
+                .withType(XmlDataExporterUtil.getMessagePrettyType(message.getType())).build();
 
-        byte rawType = message.getType();
-        String prettyType = DEFAULT_TYPE_PRETTY;
-        if (rawType == org.apache.activemq.artemis.api.core.Message.BYTES_TYPE) {
-           prettyType = BYTES_TYPE_PRETTY;
-        } else if (rawType == org.apache.activemq.artemis.api.core.Message.MAP_TYPE) {
-           prettyType = MAP_TYPE_PRETTY;
-        } else if (rawType == org.apache.activemq.artemis.api.core.Message.OBJECT_TYPE) {
-           prettyType = OBJECT_TYPE_PRETTY;
-        } else if (rawType == org.apache.activemq.artemis.api.core.Message.STREAM_TYPE) {
-           prettyType = STREAM_TYPE_PRETTY;
-        } else if (rawType == org.apache.activemq.artemis.api.core.Message.TEXT_TYPE) {
-           prettyType = TEXT_TYPE_PRETTY;
-        }
-
-        messageType.setType(prettyType);
         return messageType;
     }
-
-    private String convertPropertyType(Class<?> clazz) {
-        if (clazz.equals(SimpleString.class)) {
-            return String.class.getSimpleName().toLowerCase();
-        }
-        return clazz.getSimpleName().toLowerCase();
-    }
-
-    private static String encode(final byte[] data) {
-        return Base64.encodeBytes(data, 0, data.length, Base64.DONT_BREAK_LINES | Base64.URL_SAFE);
-     }
-
 }

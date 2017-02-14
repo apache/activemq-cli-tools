@@ -44,6 +44,7 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.cli.commands.tools.XmlDataImporter;
 import org.apache.activemq.artemis.core.config.Configuration;
@@ -53,7 +54,6 @@ import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyAcceptorFactory;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnectorFactory;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
-import org.apache.activemq.artemis.core.server.RoutingType;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 import org.apache.activemq.broker.ConnectionContext;
@@ -272,7 +272,7 @@ public class ExporterTest {
 
         configuration.addAddressConfiguration(new CoreAddressConfiguration()
                 .setName("test.queue")
-                .addRoutingType(RoutingType. ANYCAST)
+                .addRoutingType(RoutingType.ANYCAST)
                 .addQueueConfiguration(new CoreQueueConfiguration()
                         .setAddress("test.queue")
                         .setName("test.queue")
