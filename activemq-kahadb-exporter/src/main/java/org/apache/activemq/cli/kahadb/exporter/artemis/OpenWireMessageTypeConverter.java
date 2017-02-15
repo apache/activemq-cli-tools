@@ -16,11 +16,10 @@
  */
 package org.apache.activemq.cli.kahadb.exporter.artemis;
 
-import javax.jms.JMSException;
-
 import org.apache.activemq.artemis.cli.commands.tools.XmlDataExporterUtil;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireMessageConverter;
 import org.apache.activemq.artemis.core.server.ServerMessage;
+import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.cli.kahadb.exporter.OpenWireExportConverter;
 import org.apache.activemq.cli.schema.BodyType;
 import org.apache.activemq.cli.schema.MessageType;
@@ -30,10 +29,22 @@ import org.apache.activemq.cli.schema.QueueType;
 import org.apache.activemq.cli.schema.QueuesType;
 import org.apache.activemq.command.Message;
 import org.apache.activemq.openwire.OpenWireFormat;
+import org.apache.activemq.store.kahadb.KahaDBStore;
+import org.apache.activemq.store.kahadb.KahaDBUtil;
 
 public class OpenWireMessageTypeConverter implements OpenWireExportConverter<MessageType> {
 
-    final OpenWireMessageConverter converter = new OpenWireMessageConverter(new OpenWireFormat());
+    private final OpenWireMessageConverter converter = new OpenWireMessageConverter(new OpenWireFormat());
+    private final KahaDBStore store;
+
+
+    /**
+     * @param store
+     */
+    public OpenWireMessageTypeConverter(KahaDBStore store) {
+        super();
+        this.store = store;
+    }
 
     /* (non-Javadoc)
      * @see org.apache.activemq.cli.kahadb.exporter.MessageConverter#convert(org.apache.activemq.Message)
@@ -66,11 +77,23 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
         return messageType;
     }
 
-    private QueuesType convertQueue(final Message message) throws JMSException {
-        return QueuesType.builder()
-                .withQueue(QueueType.builder()
-                        .withName(message.getDestination().getPhysicalName()).build())
-            .build();
+    private QueuesType convertQueue(final Message message) throws Exception {
+        if (message.getDestination().isQueue()) {
+            return QueuesType.builder()
+                    .withQueue(QueueType.builder()
+                            .withName(message.getDestination().getPhysicalName()).build())
+                .build();
+        } else {
+            final QueuesType.Builder<Void> queuesBuilder = QueuesType.builder();
+
+            KahaDBUtil.getUnackedSubscriptions(store, message).forEach(sub -> {
+                queuesBuilder.addQueue(QueueType.builder().withName(
+                        ActiveMQDestination.createQueueNameForDurableSubscription(
+                        true, sub.getClientId(), sub.getSubcriptionName())).build());
+            });
+
+            return queuesBuilder.build();
+        }
     }
 
     private BodyType convertBody(final ServerMessage serverMessage) throws Exception {

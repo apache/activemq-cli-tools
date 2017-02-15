@@ -19,6 +19,8 @@ package org.apache.activemq.cli.kahadb.exporter;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -28,6 +30,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
@@ -56,6 +59,7 @@ import org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnectorFactor
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
+import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.broker.ConnectionContext;
 import org.apache.activemq.cli.artemis.schema.ArtemisJournalMarshaller;
 import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMessageRecoveryListener;
@@ -68,8 +72,12 @@ import org.apache.activemq.command.ActiveMQObjectMessage;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.activemq.command.ActiveMQStreamMessage;
 import org.apache.activemq.command.ActiveMQTextMessage;
+import org.apache.activemq.command.ActiveMQTopic;
+import org.apache.activemq.command.MessageAck;
 import org.apache.activemq.command.MessageId;
+import org.apache.activemq.command.SubscriptionInfo;
 import org.apache.activemq.store.MessageStore;
+import org.apache.activemq.store.TopicMessageStore;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.apache.activemq.util.ByteSequence;
 import org.apache.activemq.util.IdGenerator;
@@ -165,17 +173,19 @@ public class ExporterTest {
             xmlMarshaller.appendBindingsElement();
             xmlMarshaller.appendBinding(QueueBindingType.builder()
                     .withName("test.queue")
+                    .withRoutingType(RoutingType.ANYCAST.toString())
                     .withAddress("test.queue").build());
             xmlMarshaller.appendEndElement();
             xmlMarshaller.appendMessagesElement();
 
             KahaDBExporter dbExporter = new KahaDBExporter(adapter,
-                    new ArtemisXmlMessageRecoveryListener(xmlMarshaller));
+                    new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
 
             dbExporter.exportQueues();
             xmlMarshaller.appendJournalClose(true);
         }
 
+        adapter.stop();
 
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line = null;
@@ -250,6 +260,139 @@ public class ExporterTest {
         artemisServer.stop();
     }
 
+    @Test
+    public void testExportTopics() throws Exception {
+
+        ActiveMQTopic topic = new ActiveMQTopic("test.topic");
+        KahaDBPersistenceAdapter adapter = new KahaDBPersistenceAdapter();
+        adapter.setJournalMaxFileLength(1024 * 1024);
+        adapter.setDirectory(storeFolder.newFolder());
+        adapter.start();
+        TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
+        messageStore.start();
+
+        SubscriptionInfo sub1 = new SubscriptionInfo("clientId1", "sub1");
+        SubscriptionInfo sub2 = new SubscriptionInfo("clientId1", "sub2");
+        sub1.setDestination(topic);
+        messageStore.addSubscription(sub1, false);
+        messageStore.addSubscription(sub2, false);
+
+        IdGenerator id = new IdGenerator();
+        ConnectionContext context = new ConnectionContext();
+        MessageId first = null;
+        for (int i = 0; i < 5; i++) {
+            ActiveMQTextMessage message = new ActiveMQTextMessage();
+            message.setText("Test");
+            message.setProperty("MyStringProperty", "abc");
+            message.setProperty("MyIntegerProperty", 1);
+            message.setDestination(topic);
+            message.setMessageId(new MessageId(id.generateId() + ":1", i));
+            messageStore.addMessage(context, message);
+            if (i == 0) {
+                first = message.getMessageId();
+            }
+        }
+
+        //ack for sub1 only
+        messageStore.acknowledge(context, "clientId1", "sub1", first, new MessageAck());
+
+        messageStore.stop();
+
+      //  String queueName = ActiveMQDestination.createQueueNameForDurableSubscription(true, "clientId1", "sub1");
+
+        File file = storeFolder.newFile();
+        try(FileOutputStream fos = new FileOutputStream(file)) {
+            XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
+            ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
+
+            xmlMarshaller.appendJournalOpen();
+            xmlMarshaller.appendBindingsElement();
+
+            adapter.getStore().getDestinations().stream()
+                    .filter(dest -> dest.isTopic()).forEach(dest -> {
+
+                        try {
+                            for (SubscriptionInfo info :
+                                adapter.getStore().createTopicMessageStore((ActiveMQTopic) dest).getAllSubscriptions()) {
+                                xmlMarshaller.appendBinding(QueueBindingType.builder()
+                                        .withName(ActiveMQDestination.createQueueNameForDurableSubscription(
+                                                true, info.getClientId(), info.getSubcriptionName()))
+                                        .withRoutingType(RoutingType.MULTICAST.toString())
+                                        .withAddress(dest.getPhysicalName()).build());
+                            }
+
+                        } catch (Exception e) {
+                            fail(e.getMessage());
+                        }
+                    });
+
+            xmlMarshaller.appendEndElement();
+            xmlMarshaller.appendMessagesElement();
+
+            KahaDBExporter dbExporter = new KahaDBExporter(adapter,
+                    new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
+
+            dbExporter.exportTopics();
+            xmlMarshaller.appendJournalClose(true);
+        }
+
+        adapter.stop();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line = null;
+            while ((line = br.readLine()) != null) {
+                System.out.println(line);
+            }
+         }
+
+
+        validate(file, 5);
+
+        final ActiveMQServer artemisServer = buildArtemisBroker();
+        artemisServer.start();
+
+        XmlDataImporter dataImporter = new XmlDataImporter();
+        dataImporter.process(file.getAbsolutePath(), "localhost", 61400, false);
+
+        ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61400");
+
+        Connection connection = null;
+        try {
+
+            connection = cf.createConnection();
+            connection.setClientID("clientId1");
+            connection.start();
+
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            MessageConsumer messageConsumer = session.createSharedDurableConsumer(
+                    session.createTopic("test.topic"), "sub1");
+            MessageConsumer messageConsumer2 = session.createSharedDurableConsumer(
+                    session.createTopic("test.topic"), "sub2");
+
+            for (int i = 0; i < 5; i++) {
+                TextMessage messageReceived1 = (TextMessage) messageConsumer.receive(1000);
+                if (i < 4) {
+                    assertNotNull(messageReceived1);
+                } else {
+                    assertNull(messageReceived1);
+                }
+                TextMessage messageReceived2 = (TextMessage) messageConsumer2.receive(1000);
+                assertNotNull(messageReceived2);
+
+                assertEquals("abc", messageReceived2.getStringProperty("MyStringProperty"));
+                assertEquals("Test", messageReceived2.getText());
+            }
+
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            cf.close();
+        }
+
+        artemisServer.stop();
+    }
+
     public ActiveMQServer buildArtemisBroker() throws IOException {
         Configuration configuration = new ConfigurationImpl();
 
@@ -270,14 +413,6 @@ public class ExporterTest {
         configuration.addConnectorConfiguration("connector",
                 new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams));
 
-        configuration.addAddressConfiguration(new CoreAddressConfiguration()
-                .setName("test.queue")
-                .addRoutingType(RoutingType.ANYCAST)
-                .addQueueConfiguration(new CoreQueueConfiguration()
-                        .setAddress("test.queue")
-                        .setName("test.queue")
-                        .setRoutingType(RoutingType.ANYCAST))
-                );
 
        return new ActiveMQServerImpl(configuration);
     }

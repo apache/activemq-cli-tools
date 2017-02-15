@@ -21,6 +21,7 @@ import org.apache.activemq.cli.schema.MessageType;
 import org.apache.activemq.command.Message;
 import org.apache.activemq.command.MessageId;
 import org.apache.activemq.store.MessageRecoveryListener;
+import org.apache.activemq.store.kahadb.KahaDBStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,15 +32,16 @@ public class ArtemisXmlMessageRecoveryListener implements MessageRecoveryListene
     static final Logger LOG = LoggerFactory.getLogger(ArtemisXmlMessageRecoveryListener.class);
 
     private final ArtemisJournalMarshaller xmlMarshaller;
-    private final OpenWireMessageTypeConverter converter = new OpenWireMessageTypeConverter();
-
+    private final OpenWireMessageTypeConverter converter;
 
     /**
      * @param file
      */
-    public ArtemisXmlMessageRecoveryListener(final ArtemisJournalMarshaller xmlMarshaller) {
+    public ArtemisXmlMessageRecoveryListener(final KahaDBStore store,
+            final ArtemisJournalMarshaller xmlMarshaller) {
         super();
         this.xmlMarshaller = xmlMarshaller;
+        this.converter = new OpenWireMessageTypeConverter(store);
     }
 
 

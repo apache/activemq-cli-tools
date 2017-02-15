@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.activemq.command.ActiveMQTopic;
-import org.apache.activemq.command.SubscriptionInfo;
 import org.apache.activemq.store.MessageRecoveryListener;
 import org.apache.activemq.store.MessageStore;
 import org.apache.activemq.store.TopicMessageStore;
@@ -72,20 +71,12 @@ public class KahaDBExporter implements MessageStoreExporter {
             final ActiveMQTopic topic = (ActiveMQTopic) destination;
             final TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
 
-            //recover subscriptions
-            //TODO: This will most likely run into the same message more than once if there is
-            //more than one durable sub on a topic so we should look at optimizing this
-            //Ideally we'd just recover all the messages once and then ask KahaDB which subscriptions
-            //have not acked the message.  This will probably require a new hook into KahaDB
-//            for (final SubscriptionInfo subscriptionInfo : messageStore.getAllSubscriptions()) {
-//
-//                try {
-//                    messageStore.recoverSubscription(subscriptionInfo.getClientId(),
-//                            subscriptionInfo.getSubscriptionName(), recoveryListener);
-//                } catch (Exception e) {
-//                    IOExceptionSupport.create(e);
-//                }
-//            }
+            //recover topic
+            try {
+                messageStore.recover(recoveryListener);
+            } catch (Exception e) {
+                IOExceptionSupport.create(e);
+            }
         }
     }
 }
