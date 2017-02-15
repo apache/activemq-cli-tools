@@ -20,17 +20,14 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 import javax.jms.BytesMessage;
 import javax.jms.Connection;
@@ -44,28 +41,19 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
-import javax.xml.stream.XMLOutputFactory;
-import javax.xml.stream.XMLStreamWriter;
 
-import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.cli.commands.tools.XmlDataImporter;
 import org.apache.activemq.artemis.core.config.Configuration;
-import org.apache.activemq.artemis.core.config.CoreAddressConfiguration;
-import org.apache.activemq.artemis.core.config.CoreQueueConfiguration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyAcceptorFactory;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnectorFactory;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
-import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.broker.ConnectionContext;
-import org.apache.activemq.cli.artemis.schema.ArtemisJournalMarshaller;
-import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMessageRecoveryListener;
 import org.apache.activemq.cli.schema.ActivemqJournalType;
 import org.apache.activemq.cli.schema.ObjectFactory;
-import org.apache.activemq.cli.schema.QueueBindingType;
 import org.apache.activemq.command.ActiveMQBytesMessage;
 import org.apache.activemq.command.ActiveMQMapMessage;
 import org.apache.activemq.command.ActiveMQObjectMessage;
@@ -165,7 +153,7 @@ public class ExporterTest {
 
         adapter.stop();
 
-        File xmlFile = storeFolder.newFile();
+        File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
         Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
 
         try (BufferedReader br = new BufferedReader(new FileReader(xmlFile))) {
@@ -281,7 +269,7 @@ public class ExporterTest {
 
         adapter.stop();
 
-        File xmlFile = storeFolder.newFile();
+        File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
         Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
 
 

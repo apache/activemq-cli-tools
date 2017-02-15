@@ -28,8 +28,12 @@ import org.apache.activemq.store.MessageStore;
 import org.apache.activemq.store.TopicMessageStore;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.apache.activemq.util.IOExceptionSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KahaDBExporter implements MessageStoreExporter {
+
+    static final Logger LOG = LoggerFactory.getLogger(KahaDBExporter.class);
 
     private final KahaDBPersistenceAdapter adapter;
     private final MessageRecoveryListener recoveryListener;
@@ -49,6 +53,7 @@ public class KahaDBExporter implements MessageStoreExporter {
         // loop through all queues and export them
         for (final ActiveMQDestination destination : destinations) {
 
+            LOG.info("Starting export of: " + destination);
             final ActiveMQQueue queue = (ActiveMQQueue) destination;
             final MessageStore messageStore = adapter.createQueueMessageStore(queue);
 
@@ -68,6 +73,8 @@ public class KahaDBExporter implements MessageStoreExporter {
                 dest -> dest.isTopic()).collect(Collectors.toSet());
 
         for (ActiveMQDestination destination : destinations) {
+            LOG.info("Starting export of: " + destination);
+
             final ActiveMQTopic topic = (ActiveMQTopic) destination;
             final TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
 

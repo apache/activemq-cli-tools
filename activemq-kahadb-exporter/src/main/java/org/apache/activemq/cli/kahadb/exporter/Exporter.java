@@ -16,10 +16,11 @@
  */
 package org.apache.activemq.cli.kahadb.exporter;
 
-import static org.junit.Assert.fail;
-
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.util.zip.GZIPOutputStream;
 
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamWriter;
@@ -32,23 +33,40 @@ import org.apache.activemq.cli.schema.QueueBindingType;
 import org.apache.activemq.command.ActiveMQTopic;
 import org.apache.activemq.command.SubscriptionInfo;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * KahaDB Exporter
  */
 public class Exporter {
 
+    static final Logger LOG = LoggerFactory.getLogger(Exporter.class);
+
     public static void main(String[] args) {
+
 
     }
 
     public static void exportKahaDbStore(final File kahaDbDir, final File artemisXml) throws Exception {
+        Exporter.exportKahaDbStore(kahaDbDir, artemisXml, false);
+    }
+
+    public static void exportKahaDbStore(final File kahaDbDir, final File artemisXml,
+            boolean compress) throws Exception {
 
         KahaDBPersistenceAdapter adapter = new KahaDBPersistenceAdapter();
         adapter.setDirectory(kahaDbDir);
         adapter.start();
 
-        try(FileOutputStream fos = new FileOutputStream(artemisXml)) {
+        if (artemisXml.exists()) {
+            throw new IllegalStateException("File: " + artemisXml + " already exists");
+        }
+
+        long start = System.currentTimeMillis();
+        try(OutputStream fos = new BufferedOutputStream(compress ? new GZIPOutputStream(
+                new FileOutputStream(artemisXml)) : new FileOutputStream(artemisXml))) {
+
             XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
             ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
 
@@ -90,5 +108,8 @@ public class Exporter {
         } finally {
             adapter.stop();
         }
+        long end = System.currentTimeMillis();
+
+        LOG.info("Total export time: " + (end - start) + " ms");
     }
 }
