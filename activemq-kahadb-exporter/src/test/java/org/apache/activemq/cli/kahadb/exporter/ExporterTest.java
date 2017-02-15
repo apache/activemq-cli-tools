@@ -103,10 +103,11 @@ public class ExporterTest {
     @Test
     public void testExportQueues() throws Exception {
 
+        File kahaDbDir = storeFolder.newFolder();
         ActiveMQQueue queue = new ActiveMQQueue("test.queue");
         KahaDBPersistenceAdapter adapter = new KahaDBPersistenceAdapter();
         adapter.setJournalMaxFileLength(1024 * 1024);
-        adapter.setDirectory(storeFolder.newFolder());
+        adapter.setDirectory(kahaDbDir);
         adapter.start();
         MessageStore messageStore = adapter.createQueueMessageStore(queue);
         messageStore.start();
@@ -162,32 +163,12 @@ public class ExporterTest {
             messageStore.addMessage(context, message);
         }
 
-        messageStore.stop();
-
-        File file = storeFolder.newFile();
-        try(FileOutputStream fos = new FileOutputStream(file)) {
-            XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
-            ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
-
-            xmlMarshaller.appendJournalOpen();
-            xmlMarshaller.appendBindingsElement();
-            xmlMarshaller.appendBinding(QueueBindingType.builder()
-                    .withName("test.queue")
-                    .withRoutingType(RoutingType.ANYCAST.toString())
-                    .withAddress("test.queue").build());
-            xmlMarshaller.appendEndElement();
-            xmlMarshaller.appendMessagesElement();
-
-            KahaDBExporter dbExporter = new KahaDBExporter(adapter,
-                    new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
-
-            dbExporter.exportQueues();
-            xmlMarshaller.appendJournalClose(true);
-        }
-
         adapter.stop();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+        File xmlFile = storeFolder.newFile();
+        Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
+
+        try (BufferedReader br = new BufferedReader(new FileReader(xmlFile))) {
             String line = null;
             while ((line = br.readLine()) != null) {
                 System.out.println(line);
@@ -195,13 +176,13 @@ public class ExporterTest {
          }
 
 
-        validate(file, 17);
+        validate(xmlFile, 17);
 
         final ActiveMQServer artemisServer = buildArtemisBroker();
         artemisServer.start();
 
         XmlDataImporter dataImporter = new XmlDataImporter();
-        dataImporter.process(file.getAbsolutePath(), "localhost", 61400, false);
+        dataImporter.process(xmlFile.getAbsolutePath(), "localhost", 61400, false);
 
         ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61400");
 
@@ -263,10 +244,12 @@ public class ExporterTest {
     @Test
     public void testExportTopics() throws Exception {
 
+        File kahaDbDir = storeFolder.newFolder();
+
         ActiveMQTopic topic = new ActiveMQTopic("test.topic");
         KahaDBPersistenceAdapter adapter = new KahaDBPersistenceAdapter();
         adapter.setJournalMaxFileLength(1024 * 1024);
-        adapter.setDirectory(storeFolder.newFolder());
+        adapter.setDirectory(kahaDbDir);
         adapter.start();
         TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
         messageStore.start();
@@ -296,49 +279,13 @@ public class ExporterTest {
         //ack for sub1 only
         messageStore.acknowledge(context, "clientId1", "sub1", first, new MessageAck());
 
-        messageStore.stop();
-
-      //  String queueName = ActiveMQDestination.createQueueNameForDurableSubscription(true, "clientId1", "sub1");
-
-        File file = storeFolder.newFile();
-        try(FileOutputStream fos = new FileOutputStream(file)) {
-            XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
-            ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
-
-            xmlMarshaller.appendJournalOpen();
-            xmlMarshaller.appendBindingsElement();
-
-            adapter.getStore().getDestinations().stream()
-                    .filter(dest -> dest.isTopic()).forEach(dest -> {
-
-                        try {
-                            for (SubscriptionInfo info :
-                                adapter.getStore().createTopicMessageStore((ActiveMQTopic) dest).getAllSubscriptions()) {
-                                xmlMarshaller.appendBinding(QueueBindingType.builder()
-                                        .withName(ActiveMQDestination.createQueueNameForDurableSubscription(
-                                                true, info.getClientId(), info.getSubcriptionName()))
-                                        .withRoutingType(RoutingType.MULTICAST.toString())
-                                        .withAddress(dest.getPhysicalName()).build());
-                            }
-
-                        } catch (Exception e) {
-                            fail(e.getMessage());
-                        }
-                    });
-
-            xmlMarshaller.appendEndElement();
-            xmlMarshaller.appendMessagesElement();
-
-            KahaDBExporter dbExporter = new KahaDBExporter(adapter,
-                    new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
-
-            dbExporter.exportTopics();
-            xmlMarshaller.appendJournalClose(true);
-        }
-
         adapter.stop();
 
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+        File xmlFile = storeFolder.newFile();
+        Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
+
+
+        try (BufferedReader br = new BufferedReader(new FileReader(xmlFile))) {
             String line = null;
             while ((line = br.readLine()) != null) {
                 System.out.println(line);
@@ -346,13 +293,13 @@ public class ExporterTest {
          }
 
 
-        validate(file, 5);
+        validate(xmlFile, 5);
 
         final ActiveMQServer artemisServer = buildArtemisBroker();
         artemisServer.start();
 
         XmlDataImporter dataImporter = new XmlDataImporter();
-        dataImporter.process(file.getAbsolutePath(), "localhost", 61400, false);
+        dataImporter.process(xmlFile.getAbsolutePath(), "localhost", 61400, false);
 
         ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61400");
 
