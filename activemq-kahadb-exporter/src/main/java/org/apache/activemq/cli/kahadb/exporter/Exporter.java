@@ -25,13 +25,9 @@ import java.util.zip.GZIPOutputStream;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamWriter;
 
-import org.apache.activemq.artemis.api.core.RoutingType;
-import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.cli.artemis.schema.ArtemisJournalMarshaller;
 import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMessageRecoveryListener;
-import org.apache.activemq.cli.schema.QueueBindingType;
-import org.apache.activemq.command.ActiveMQTopic;
-import org.apache.activemq.command.SubscriptionInfo;
+import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMetadataExporter;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,43 +63,20 @@ public class Exporter {
         try(OutputStream fos = new BufferedOutputStream(compress ? new GZIPOutputStream(
                 new FileOutputStream(artemisXml)) : new FileOutputStream(artemisXml))) {
 
-            XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
-            ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
+            final XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
+            final ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
+            final KahaDBExporter dbExporter = new KahaDBExporter(adapter,
+                    new ArtemisXmlMetadataExporter(adapter.getStore(), xmlMarshaller),
+                    new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
 
             xmlMarshaller.appendJournalOpen();
             xmlMarshaller.appendBindingsElement();
-
-            adapter.getStore().getDestinations().stream()
-                .forEach(dest -> {
-                    try {
-                        if (dest.isQueue()) {
-                            xmlMarshaller.appendBinding(QueueBindingType.builder()
-                                    .withName(dest.getPhysicalName())
-                                    .withRoutingType(RoutingType.ANYCAST.toString())
-                                    .withAddress(dest.getPhysicalName()).build());
-                        } else if (dest.isTopic()) {
-                                for (SubscriptionInfo info :
-                                    adapter.getStore().createTopicMessageStore((ActiveMQTopic) dest).getAllSubscriptions()) {
-                                    xmlMarshaller.appendBinding(QueueBindingType.builder()
-                                            .withName(ActiveMQDestination.createQueueNameForDurableSubscription(
-                                                    true, info.getClientId(), info.getSubcriptionName()))
-                                            .withRoutingType(RoutingType.MULTICAST.toString())
-                                            .withAddress(dest.getPhysicalName()).build());
-                                }
-                        }
-                    } catch (Exception e) {
-                        throw new IllegalStateException(e);
-                    }
-                });
-
+            dbExporter.exportMetadata();
             xmlMarshaller.appendEndElement();
             xmlMarshaller.appendMessagesElement();
-
-            KahaDBExporter dbExporter = new KahaDBExporter(adapter,
-                    new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
-
             dbExporter.exportQueues();
             dbExporter.exportTopics();
+            xmlMarshaller.appendEndElement();
             xmlMarshaller.appendJournalClose(true);
         } finally {
             adapter.stop();

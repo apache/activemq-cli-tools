@@ -18,11 +18,7 @@ package org.apache.activemq.cli.kahadb.exporter;
 
 import java.io.IOException;
 
-public interface MessageStoreExporter {
+public interface MessageStoreMetadataExporter {
 
-    public void exportMetadata() throws IOException;
-
-    public void exportQueues() throws IOException;
-
-    public void exportTopics() throws IOException;
+    public void export() throws IOException;
 }

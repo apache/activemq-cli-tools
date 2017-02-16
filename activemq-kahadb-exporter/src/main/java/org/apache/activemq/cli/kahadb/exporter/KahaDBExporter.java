@@ -25,7 +25,6 @@ import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.activemq.command.ActiveMQTopic;
 import org.apache.activemq.store.MessageRecoveryListener;
 import org.apache.activemq.store.MessageStore;
-import org.apache.activemq.store.TopicMessageStore;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.apache.activemq.util.IOExceptionSupport;
 import org.slf4j.Logger;
@@ -36,26 +35,44 @@ public class KahaDBExporter implements MessageStoreExporter {
     static final Logger LOG = LoggerFactory.getLogger(KahaDBExporter.class);
 
     private final KahaDBPersistenceAdapter adapter;
+    private final MessageStoreMetadataExporter metadataExporter;
     private final MessageRecoveryListener recoveryListener;
 
-    public KahaDBExporter (final KahaDBPersistenceAdapter adapter,
+    public KahaDBExporter(final KahaDBPersistenceAdapter adapter,
+            final MessageStoreMetadataExporter metadataExporter,
             final MessageRecoveryListener recoveryListener) {
         this.adapter = adapter;
+        this.metadataExporter = metadataExporter;
         this.recoveryListener = recoveryListener;
+    }
+
+
+    @Override
+    public void exportMetadata() throws IOException {
+        metadataExporter.export();
     }
 
     @Override
     public void exportQueues() throws IOException {
+        exportDestinations(ActiveMQDestination.QUEUE_TYPE);
+    }
 
+    @Override
+    public void exportTopics() throws IOException {
+        exportDestinations(ActiveMQDestination.TOPIC_TYPE);
+    }
+
+    private void exportDestinations(byte destType) throws IOException {
         final Set<ActiveMQDestination> destinations = adapter.getDestinations().stream().filter(
-                dest -> dest.isQueue()).collect(Collectors.toSet());
+                dest -> dest.getDestinationType() == destType).collect(Collectors.toSet());
 
         // loop through all queues and export them
         for (final ActiveMQDestination destination : destinations) {
 
             LOG.info("Starting export of: " + destination);
-            final ActiveMQQueue queue = (ActiveMQQueue) destination;
-            final MessageStore messageStore = adapter.createQueueMessageStore(queue);
+            final MessageStore messageStore = destination.isQueue() ?
+                    adapter.createQueueMessageStore((ActiveMQQueue) destination) :
+                    adapter.createTopicMessageStore((ActiveMQTopic) destination);
 
             try {
                 // migrate the data
@@ -66,24 +83,4 @@ public class KahaDBExporter implements MessageStoreExporter {
         }
     }
 
-    @Override
-    public void exportTopics() throws IOException {
-
-        final Set<ActiveMQDestination> destinations = adapter.getDestinations().stream().filter(
-                dest -> dest.isTopic()).collect(Collectors.toSet());
-
-        for (ActiveMQDestination destination : destinations) {
-            LOG.info("Starting export of: " + destination);
-
-            final ActiveMQTopic topic = (ActiveMQTopic) destination;
-            final TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
-
-            //recover topic
-            try {
-                messageStore.recover(recoveryListener);
-            } catch (Exception e) {
-                IOExceptionSupport.create(e);
-            }
-        }
-    }
 }
