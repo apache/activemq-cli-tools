@@ -156,13 +156,7 @@ public class ExporterTest {
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
         Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
 
-        try (BufferedReader br = new BufferedReader(new FileReader(xmlFile))) {
-            String line = null;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-            }
-         }
-
+      // printFile(xmlFile);
 
         validate(xmlFile, 17);
 
@@ -272,14 +266,7 @@ public class ExporterTest {
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
         Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
 
-
-        try (BufferedReader br = new BufferedReader(new FileReader(xmlFile))) {
-            String line = null;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-            }
-         }
-
+     //   printFile(xmlFile);
 
         validate(xmlFile, 5);
 
@@ -358,6 +345,15 @@ public class ExporterTest {
         Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
         JAXBElement<ActivemqJournalType> read = (JAXBElement<ActivemqJournalType>) jaxbUnmarshaller.unmarshal(file);
         assertEquals(count, read.getValue().getMessages().getMessage().size());
+    }
+
+    private void printFile(File file) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line = null;
+            while ((line = br.readLine()) != null) {
+                System.out.println(line);
+            }
+         }
     }
 
 }

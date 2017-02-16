@@ -24,5 +24,9 @@ public interface MessageStoreExporter {
 
     public void exportQueues() throws IOException;
 
+    public void exportQueues(String pattern) throws IOException;
+
     public void exportTopics() throws IOException;
+
+    public void exportTopics(String pattern) throws IOException;
 }
