@@ -65,8 +65,8 @@ import org.apache.activemq.command.MessageAck;
 import org.apache.activemq.command.MessageId;
 import org.apache.activemq.command.SubscriptionInfo;
 import org.apache.activemq.store.MessageStore;
+import org.apache.activemq.store.PersistenceAdapter;
 import org.apache.activemq.store.TopicMessageStore;
-import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.apache.activemq.util.ByteSequence;
 import org.apache.activemq.util.IdGenerator;
 import org.junit.Rule;
@@ -75,12 +75,16 @@ import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ExporterTest {
+public abstract class ExporterTest {
 
     static final Logger LOG = LoggerFactory.getLogger(ExporterTest.class);
 
     @Rule
     public TemporaryFolder storeFolder = new TemporaryFolder();
+
+    public abstract PersistenceAdapter getPersistenceAdapter(File dir);
+
+    public abstract void exportStore(final File kahaDbDir, final File xmlFile) throws Exception;
 
     /**
      * TODO Improve test when real exporting is done, for now this just
@@ -93,9 +97,7 @@ public class ExporterTest {
 
         File kahaDbDir = storeFolder.newFolder();
         ActiveMQQueue queue = new ActiveMQQueue("test.queue");
-        KahaDBPersistenceAdapter adapter = new KahaDBPersistenceAdapter();
-        adapter.setJournalMaxFileLength(1024 * 1024);
-        adapter.setDirectory(kahaDbDir);
+        PersistenceAdapter adapter = getPersistenceAdapter(kahaDbDir);
         adapter.start();
         MessageStore messageStore = adapter.createQueueMessageStore(queue);
         messageStore.start();
@@ -154,7 +156,7 @@ public class ExporterTest {
         adapter.stop();
 
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
-        Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
+        exportStore(kahaDbDir, xmlFile);
 
       // printFile(xmlFile);
 
@@ -229,9 +231,7 @@ public class ExporterTest {
         File kahaDbDir = storeFolder.newFolder();
 
         ActiveMQTopic topic = new ActiveMQTopic("test.topic");
-        KahaDBPersistenceAdapter adapter = new KahaDBPersistenceAdapter();
-        adapter.setJournalMaxFileLength(1024 * 1024);
-        adapter.setDirectory(kahaDbDir);
+        PersistenceAdapter adapter = getPersistenceAdapter(kahaDbDir);
         adapter.start();
         TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
         messageStore.start();
@@ -264,9 +264,9 @@ public class ExporterTest {
         adapter.stop();
 
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
-        Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
+        exportStore(kahaDbDir, xmlFile);
 
-     //   printFile(xmlFile);
+        printFile(xmlFile);
 
         validate(xmlFile, 5);
 
