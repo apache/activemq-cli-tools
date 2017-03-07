@@ -25,13 +25,11 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
 import javax.xml.stream.XMLOutputFactory;
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.apache.activemq.cli.artemis.schema.ArtemisJournalMarshaller;
 import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMessageRecoveryListener;
 import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMetadataExporter;
-import org.apache.activemq.store.PersistenceAdapter;
 import org.apache.activemq.store.kahadb.FilteredKahaDBPersistenceAdapter;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.apache.activemq.store.kahadb.MultiKahaDBPersistenceAdapter;
@@ -40,6 +38,14 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 
+import io.airlift.airline.Arguments;
+import io.airlift.airline.Cli;
+import io.airlift.airline.Cli.CliBuilder;
+import io.airlift.airline.Command;
+import io.airlift.airline.Help;
+import io.airlift.airline.Option;
+import io.airlift.airline.OptionType;
+
 /**
  * KahaDB Exporter
  */
@@ -47,9 +53,64 @@ public class Exporter {
 
     static final Logger LOG = LoggerFactory.getLogger(Exporter.class);
 
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) {
 
+        CliBuilder<Runnable> builder = Cli.<Runnable>builder("export")
+                .withDescription("Export a KahaDB or MultiKahaDB store to Artemis XML")
+                .withDefaultCommand(Help.class)
+                .withCommands(Help.class, ExportKahaDb.class, ExportMultiKahaDb.class);
 
+        Cli<Runnable> gitParser = builder.build();
+
+        gitParser.parse(args).run();
+
+    }
+
+    @Command(name = "kahadb", description = "Export KahaDb")
+    public static class ExportKahaDb implements Runnable
+    {
+        @Option(name="-source", type = OptionType.COMMAND, description = "Data store directory location")
+        public String source;
+
+        @Option(name = "-target", type = OptionType.COMMAND, description = "Xml output file location")
+        public String target;
+
+        @Option(name = "-c", type = OptionType.COMMAND, description = "Compress output xml file")
+        public boolean compress;
+
+        /* (non-Javadoc)
+         * @see java.lang.Runnable#run()
+         */
+        @Override
+        public void run() {
+            LOG.info("Starting store export");
+            try {
+                Exporter.exportKahaDbStore(new File(source), new File(target), compress);
+            } catch (Exception e) {
+                LOG.error(e.getMessage(), e);
+            }
+
+        }
+    }
+
+    @Command(name = "mkahadb", description = "Export MultiKahaDb")
+    public static class ExportMultiKahaDb extends ExportKahaDb
+    {
+
+        /* (non-Javadoc)
+         * @see java.lang.Runnable#run()
+         */
+        @Override
+        public void run() {
+            LOG.info("Exporting");
+            try {
+                Exporter.exportMultiKahaDbStore(new File(source), new File(target),  compress);
+            } catch (Exception e) {
+                LOG.error(e.getMessage(), e);
+            }
+
+        }
     }
 
     public static void exportKahaDbStore(final File kahaDbDir, final File artemisXml) throws Exception {

@@ -54,17 +54,14 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -148,6 +145,22 @@
           </xsdOptions>
         </configuration>
       </plugin>
+      <plugin>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+               <execution>
+                  <id>source</id>
+                  <configuration>
+                     <descriptor>src/main/resources/unix-bin.xml</descriptor>
+                     <tarLongFileMode>posix</tarLongFileMode>
+                  </configuration>
+                  <phase>package</phase>
+                  <goals>
+                     <goal>single</goal>
+                  </goals>
+               </execution>
+            </executions>
+         </plugin>
     </plugins>
   </build>
 </project>
