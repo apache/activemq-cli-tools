@@ -16,9 +16,9 @@
  */
 package org.apache.activemq.cli.kahadb.exporter.artemis;
 
+import org.apache.activemq.artemis.api.core.ICoreMessage;
 import org.apache.activemq.artemis.cli.commands.tools.XmlDataExporterUtil;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireMessageConverter;
-import org.apache.activemq.artemis.core.server.ServerMessage;
 import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.cli.kahadb.exporter.OpenWireExportConverter;
 import org.apache.activemq.cli.schema.BodyType;
@@ -51,7 +51,7 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
      */
     @Override
     public MessageType convert(final Message message) throws Exception {
-        final ServerMessage serverMessage = converter.inbound(message);
+        final ICoreMessage serverMessage = (ICoreMessage) converter.inbound(message);
         final MessageType messageType = convertAttributes(serverMessage);
 
         try {
@@ -96,7 +96,7 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
         }
     }
 
-    private BodyType convertBody(final ServerMessage serverMessage) throws Exception {
+    private BodyType convertBody(final ICoreMessage serverMessage) throws Exception {
         String value = XmlDataExporterUtil.encodeMessageBody(serverMessage);
 
         //requires CDATA
@@ -105,7 +105,7 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
             .build();
     }
 
-    private MessageType convertAttributes(final ServerMessage message) {
+    private MessageType convertAttributes(final ICoreMessage message) {
         MessageType messageType = MessageType.builder()
                 .withId(message.getMessageID())
                 .withTimestamp(message.getTimestamp())
