@@ -32,18 +32,25 @@ import org.apache.activemq.openwire.OpenWireFormat;
 import org.apache.activemq.store.kahadb.KahaDBStore;
 import org.apache.activemq.store.kahadb.KahaDBUtil;
 
-public class OpenWireMessageTypeConverter implements OpenWireExportConverter<MessageType> {
+/**
+ * Message Converter that first converts an OpenWire message to a Core Message and then uses
+ * the Core message to convert to an Artemis XML MessageType.
+ */
+public class OpenWireCoreMessageTypeConverter implements OpenWireExportConverter<MessageType> {
 
     private final OpenWireMessageConverter converter = new OpenWireMessageConverter(new OpenWireFormat());
     private final KahaDBStore store;
 
-
     /**
      * @param store
      */
-    public OpenWireMessageTypeConverter(KahaDBStore store) {
+    public OpenWireCoreMessageTypeConverter(KahaDBStore store) {
         super();
         this.store = store;
+    }
+
+    public OpenWireCoreMessageTypeConverter() {
+        this(null);
     }
 
     /* (non-Javadoc)
@@ -68,7 +75,7 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
                 messageType.setProperties(propertiesType);
             }
 
-            messageType.setQueues(convertQueue(message));
+            messageType.setQueues(convertQueues(message));
             messageType.setBody(convertBody(serverMessage));
         } catch (Exception e) {
             throw new IllegalStateException(e.getMessage(), e);
@@ -77,8 +84,16 @@ public class OpenWireMessageTypeConverter implements OpenWireExportConverter<Mes
         return messageType;
     }
 
-    private QueuesType convertQueue(final Message message) throws Exception {
-        if (message.getDestination().isQueue()) {
+    /**
+     * Determine the destinations associated with this message
+     * Will be one destination for a Queue message or 1 or more for a Topic
+     *
+     * @param message
+     * @return
+     * @throws Exception
+     */
+    private QueuesType convertQueues(final Message message) throws Exception {
+        if (store == null || message.getDestination().isQueue()) {
             return QueuesType.builder()
                     .withQueue(QueueType.builder()
                             .withName(message.getDestination().getPhysicalName()).build())

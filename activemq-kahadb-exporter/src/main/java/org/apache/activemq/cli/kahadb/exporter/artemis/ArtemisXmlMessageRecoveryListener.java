@@ -32,7 +32,7 @@ public class ArtemisXmlMessageRecoveryListener implements MessageRecoveryListene
     static final Logger LOG = LoggerFactory.getLogger(ArtemisXmlMessageRecoveryListener.class);
 
     private final ArtemisJournalMarshaller xmlMarshaller;
-    private final OpenWireMessageTypeConverter converter;
+    private final OpenWireCoreMessageTypeConverter converter;
 
     /**
      * @param file
@@ -41,7 +41,7 @@ public class ArtemisXmlMessageRecoveryListener implements MessageRecoveryListene
             final ArtemisJournalMarshaller xmlMarshaller) {
         super();
         this.xmlMarshaller = xmlMarshaller;
-        this.converter = new OpenWireMessageTypeConverter(store);
+        this.converter = new OpenWireCoreMessageTypeConverter(store);
     }
 
 
