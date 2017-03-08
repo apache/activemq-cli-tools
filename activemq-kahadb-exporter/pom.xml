@@ -19,7 +19,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <parent>
     <groupId>org.apache.activemq</groupId>
-    <artifactId>activemq-cli-tools</artifactId>
+    <artifactId>activemq-cli-tools-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
@@ -54,14 +54,17 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -145,22 +148,6 @@
           </xsdOptions>
         </configuration>
       </plugin>
-      <plugin>
-            <artifactId>maven-assembly-plugin</artifactId>
-            <executions>
-               <execution>
-                  <id>source</id>
-                  <configuration>
-                     <descriptor>src/main/resources/unix-bin.xml</descriptor>
-                     <tarLongFileMode>posix</tarLongFileMode>
-                  </configuration>
-                  <phase>package</phase>
-                  <goals>
-                     <goal>single</goal>
-                  </goals>
-               </execution>
-            </executions>
-         </plugin>
     </plugins>
   </build>
 </project>
