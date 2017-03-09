@@ -52,6 +52,7 @@ import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
 import org.apache.activemq.broker.ConnectionContext;
+import org.apache.activemq.cli.kahadb.exporter.ExportConfiguration.ExportConfigurationBuilder;
 import org.apache.activemq.cli.schema.ActivemqJournalType;
 import org.apache.activemq.cli.schema.ObjectFactory;
 import org.apache.activemq.command.ActiveMQBytesMessage;
@@ -84,16 +85,44 @@ public abstract class ExporterTest {
 
     public abstract PersistenceAdapter getPersistenceAdapter(File dir);
 
-    public abstract void exportStore(final File kahaDbDir, final File xmlFile) throws Exception;
+    public abstract void exportStore(final ExportConfigurationBuilder builder) throws Exception;
+
+    @Test
+    public void testExportQueuesPattern() throws Exception {
+        testExportQueues("test.>");
+    }
 
     /**
-     * TODO Improve test when real exporting is done, for now this just
-     * tests that the recovery listener iterates over all the queue messages
      *
      * @throws Exception
      */
     @Test
-    public void testExportQueues() throws Exception {
+    public void testExportQueuesAll() throws Exception {
+        testExportQueues(null);
+    }
+
+    @Test
+    public void testExportQueuesPatternEmpty() throws Exception {
+        File sourceDir = storeFolder.newFolder();
+        ActiveMQQueue queue = new ActiveMQQueue("test.queue");
+        PersistenceAdapter adapter = getPersistenceAdapter(sourceDir);
+        adapter.start();
+        MessageStore messageStore = adapter.createQueueMessageStore(queue);
+        messageStore.start();
+        publishQueueMessages(messageStore, queue, new Date(), new byte[] {10, 11, 12});
+        adapter.stop();
+
+        File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
+        exportStore(ExportConfigurationBuilder.newBuilder()
+                .setSource(sourceDir)
+                .setTarget(xmlFile)
+                .setQueuePattern("empty.>"));
+
+        validate(xmlFile, 0);
+    }
+
+
+    protected void testExportQueues(String pattern) throws Exception {
 
         File kahaDbDir = storeFolder.newFolder();
         ActiveMQQueue queue = new ActiveMQQueue("test.queue");
@@ -102,63 +131,17 @@ public abstract class ExporterTest {
         MessageStore messageStore = adapter.createQueueMessageStore(queue);
         messageStore.start();
 
-        IdGenerator id = new IdGenerator();
-        ConnectionContext context = new ConnectionContext();
-        for (int i = 0; i < 5; i++) {
-            ActiveMQTextMessage message = new ActiveMQTextMessage();
-            message.setText("Test");
-            message.setProperty("MyStringProperty", "abc");
-            message.setProperty("MyIntegerProperty", 1);
-            message.setDestination(queue);
-            message.setMessageId(new MessageId(id.generateId() + ":1", i));
-            messageStore.addMessage(context, message);
-        }
-        byte[] bytes = new byte[] {10, 11, 12};
-        for (int i = 0; i < 3; i++) {
-            ActiveMQBytesMessage message = new ActiveMQBytesMessage();
-
-            message.setContent(new ByteSequence(bytes));
-            message.setProperty("MyStringProperty", "abc");
-            message.setProperty("MyByteProperty", (byte)10);
-            message.setDestination(queue);
-            message.setMessageId(new MessageId(id.generateId() + ":2", i));
-            messageStore.addMessage(context, message);
-        }
-
-        for (int i = 0; i < 3; i++) {
-            ActiveMQMapMessage message = new ActiveMQMapMessage();
-            message.setObject("key", "value");
-            message.setObject("key2", 10);
-            message.setProperty("MyStringProperty", "abc");
-            message.setDestination(queue);
-            message.setMessageId(new MessageId(id.generateId() + ":3", i));
-            messageStore.addMessage(context, message);
-        }
-
-        Date date = new Date();
-        for (int i = 0; i < 3; i++) {
-            ActiveMQObjectMessage message = new ActiveMQObjectMessage();
-            message.setObject(date);
-            message.setDestination(queue);
-            message.setMessageId(new MessageId(id.generateId() + ":4", i));
-            messageStore.addMessage(context, message);
-        }
-
-        for (int i = 0; i < 3; i++) {
-            ActiveMQStreamMessage message = new ActiveMQStreamMessage();
-            message.writeByte((byte)10);
-            message.storeContentAndClear();
-            message.setDestination(queue);
-            message.setMessageId(new MessageId(id.generateId() + ":5", i));
-            messageStore.addMessage(context, message);
-        }
+        final byte[] bytes = new byte[] {10, 11, 12};
+        final Date date = new Date();
+        publishQueueMessages(messageStore, queue, date, bytes);
 
         adapter.stop();
 
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
-        exportStore(kahaDbDir, xmlFile);
-
-      // printFile(xmlFile);
+        exportStore(ExportConfigurationBuilder.newBuilder()
+                .setSource(kahaDbDir)
+                .setTarget(xmlFile)
+                .setQueuePattern(pattern));
 
         validate(xmlFile, 17);
 
@@ -264,7 +247,9 @@ public abstract class ExporterTest {
         adapter.stop();
 
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
-        exportStore(kahaDbDir, xmlFile);
+        exportStore(ExportConfigurationBuilder.newBuilder()
+                .setSource(kahaDbDir)
+                .setTarget(xmlFile));
 
         printFile(xmlFile);
 
@@ -337,6 +322,60 @@ public abstract class ExporterTest {
 
 
        return new ActiveMQServerImpl(configuration);
+    }
+
+    private void publishQueueMessages(MessageStore messageStore, ActiveMQQueue queue,
+            Date date, byte[] bytes) throws Exception {
+        IdGenerator id = new IdGenerator();
+        ConnectionContext context = new ConnectionContext();
+        for (int i = 0; i < 5; i++) {
+            ActiveMQTextMessage message = new ActiveMQTextMessage();
+            message.setText("Test");
+            message.setProperty("MyStringProperty", "abc");
+            message.setProperty("MyIntegerProperty", 1);
+            message.setDestination(queue);
+            message.setMessageId(new MessageId(id.generateId() + ":1", i));
+            messageStore.addMessage(context, message);
+        }
+
+        for (int i = 0; i < 3; i++) {
+            ActiveMQBytesMessage message = new ActiveMQBytesMessage();
+
+            message.setContent(new ByteSequence(bytes));
+            message.setProperty("MyStringProperty", "abc");
+            message.setProperty("MyByteProperty", (byte)10);
+            message.setDestination(queue);
+            message.setMessageId(new MessageId(id.generateId() + ":2", i));
+            messageStore.addMessage(context, message);
+        }
+
+        for (int i = 0; i < 3; i++) {
+            ActiveMQMapMessage message = new ActiveMQMapMessage();
+            message.setObject("key", "value");
+            message.setObject("key2", 10);
+            message.setProperty("MyStringProperty", "abc");
+            message.setDestination(queue);
+            message.setMessageId(new MessageId(id.generateId() + ":3", i));
+            messageStore.addMessage(context, message);
+        }
+
+
+        for (int i = 0; i < 3; i++) {
+            ActiveMQObjectMessage message = new ActiveMQObjectMessage();
+            message.setObject(date);
+            message.setDestination(queue);
+            message.setMessageId(new MessageId(id.generateId() + ":4", i));
+            messageStore.addMessage(context, message);
+        }
+
+        for (int i = 0; i < 3; i++) {
+            ActiveMQStreamMessage message = new ActiveMQStreamMessage();
+            message.writeByte((byte)10);
+            message.storeContentAndClear();
+            message.setDestination(queue);
+            message.setMessageId(new MessageId(id.generateId() + ":5", i));
+            messageStore.addMessage(context, message);
+        }
     }
 
     @SuppressWarnings("unchecked")

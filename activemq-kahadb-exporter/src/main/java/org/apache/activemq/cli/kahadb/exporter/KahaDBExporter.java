@@ -67,11 +67,13 @@ public class KahaDBExporter implements MessageStoreExporter {
 
     @Override
     public void exportQueues(String pattern) throws IOException {
+        pattern = pattern != null ? pattern : DestinationFilter.ANY_DESCENDENT;
         exportDestinations(new ActiveMQQueue(pattern));
     }
 
     @Override
     public void exportTopics(String pattern) throws IOException {
+        pattern = pattern != null ? pattern : DestinationFilter.ANY_DESCENDENT;
         exportDestinations(new ActiveMQTopic(pattern));
     }
 

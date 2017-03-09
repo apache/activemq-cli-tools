@@ -28,6 +28,7 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.apache.activemq.cli.artemis.schema.ArtemisJournalMarshaller;
+import org.apache.activemq.cli.kahadb.exporter.ExportConfiguration.ExportConfigurationBuilder;
 import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMessageRecoveryListener;
 import org.apache.activemq.cli.kahadb.exporter.artemis.ArtemisXmlMetadataExporter;
 import org.apache.activemq.store.kahadb.FilteredKahaDBPersistenceAdapter;
@@ -66,17 +67,26 @@ public class Exporter {
 
     }
 
-    @Command(name = "kahadb", description = "Export KahaDb")
+    @Command(name = "kahadb", description = "Export a KahaDb store to Artemis XML")
     public static class ExportKahaDb implements Runnable
     {
-        @Option(name="-source", type = OptionType.COMMAND, description = "Data store directory location")
+        @Option(name = {"-s", "--source"}, required = true, type = OptionType.COMMAND, description = "Data store directory location")
         public String source;
 
-        @Option(name = "-target", type = OptionType.COMMAND, description = "Xml output file location")
+        @Option(name = {"-t", "--target"}, required = true, type = OptionType.COMMAND, description = "Xml output file location")
         public String target;
 
-        @Option(name = "-c", type = OptionType.COMMAND, description = "Compress output xml file")
+        @Option(name = {"--qp", "--queuePattern"}, type = OptionType.COMMAND, description = "Queue Export Pattern")
+        public String queuePattern;
+
+        @Option(name = {"--tp", "--queuePattern"}, type = OptionType.COMMAND, description = "Topic Export Pattern")
+        public String topicPattern;
+
+        @Option(name = "-c", type = OptionType.COMMAND, description = "Compress output xml file using gzip")
         public boolean compress;
+
+        @Option(name = "-f", type = OptionType.COMMAND, description = "Force XML output and overwrite existing file")
+        public boolean overwrite;
 
         /* (non-Javadoc)
          * @see java.lang.Runnable#run()
@@ -85,7 +95,13 @@ public class Exporter {
         public void run() {
             LOG.info("Starting store export");
             try {
-                Exporter.exportKahaDbStore(new File(source), new File(target), compress);
+                Exporter.exportStore(ExportConfigurationBuilder.newBuilder()
+                        .setSource(new File(source))
+                        .setTarget(new File(target))
+                        .setQueuePattern(queuePattern)
+                        .setTopicPattern(topicPattern)
+                        .setCompress(compress)
+                        .build());
             } catch (Exception e) {
                 LOG.error(e.getMessage(), e);
             }
@@ -93,7 +109,7 @@ public class Exporter {
         }
     }
 
-    @Command(name = "mkahadb", description = "Export MultiKahaDb")
+    @Command(name = "mkahadb", description = "Export a MultiKahaDb store to Artemis XML")
     public static class ExportMultiKahaDb extends ExportKahaDb
     {
 
@@ -104,7 +120,14 @@ public class Exporter {
         public void run() {
             LOG.info("Exporting");
             try {
-                Exporter.exportMultiKahaDbStore(new File(source), new File(target),  compress);
+                Exporter.exportStore(ExportConfigurationBuilder.newBuilder()
+                        .setMultiKaha(true)
+                        .setSource(new File(source))
+                        .setTarget(new File(target))
+                        .setQueuePattern(queuePattern)
+                        .setTopicPattern(topicPattern)
+                        .setCompress(compress)
+                        .build());
             } catch (Exception e) {
                 LOG.error(e.getMessage(), e);
             }
@@ -112,44 +135,27 @@ public class Exporter {
         }
     }
 
-    public static void exportKahaDbStore(final File kahaDbDir, final File artemisXml) throws Exception {
-        Exporter.exportStore(kahaDbDir, artemisXml, false, false);
-    }
+    public static void exportStore(final ExportConfiguration config) throws Exception {
 
-    public static void exportKahaDbStore(final File kahaDbDir, final File artemisXml,
-            boolean compress) throws Exception {
-        Exporter.exportStore(kahaDbDir, artemisXml, false, compress);
-    }
-
-    public static void exportMultiKahaDbStore(final File kahaDbDir, final File artemisXml) throws Exception {
-        Exporter.exportStore(kahaDbDir, artemisXml, true, false);
-    }
-
-    public static void exportMultiKahaDbStore(final File kahaDbDir, final File artemisXml,
-            boolean compress) throws Exception {
-        Exporter.exportStore(kahaDbDir, artemisXml, true, compress);
-    }
-
-    private static void exportStore(final File kahaDbDir, final File artemisXml,
-            boolean multiKaha, boolean compress) throws Exception {
-
-        if (artemisXml.exists()) {
-            throw new IllegalStateException("File: " + artemisXml + " already exists");
+        if (config.getTarget().exists()) {
+            throw new IllegalStateException("File: " + config.getTarget() + " already exists");
         }
 
         long start = System.currentTimeMillis();
-        try(OutputStream fos = new BufferedOutputStream(compress ? new GZIPOutputStream(
-                new FileOutputStream(artemisXml)) : new FileOutputStream(artemisXml))) {
+        try(OutputStream fos = new BufferedOutputStream(config.isCompress() ? new GZIPOutputStream(
+                new FileOutputStream(config.getTarget())) : new FileOutputStream(config.getTarget()))) {
 
             final XMLStreamWriter xmlWriter = XMLOutputFactory.newFactory().createXMLStreamWriter(fos);
             final ArtemisJournalMarshaller xmlMarshaller = new ArtemisJournalMarshaller(xmlWriter);
 
             xmlMarshaller.appendJournalOpen();
 
-            if (multiKaha) {
-                appendMultiKahaDbStore(xmlMarshaller, getMultiKahaDbAdapter(kahaDbDir));
+            if (config.isMultiKaha()) {
+                appendMultiKahaDbStore(xmlMarshaller, getMultiKahaDbAdapter(config.getSource()),
+                        config.getQueuePattern(), config.getTopicPattern());
             } else {
-                appendKahaDbStore(xmlMarshaller, getKahaDbAdapter(kahaDbDir));
+                appendKahaDbStore(xmlMarshaller, getKahaDbAdapter(config.getSource()),
+                        config.getQueuePattern(), config.getTopicPattern());
             }
 
             xmlMarshaller.appendJournalClose(true);
@@ -162,7 +168,8 @@ public class Exporter {
 
 
     private static void appendMultiKahaDbStore(final ArtemisJournalMarshaller xmlMarshaller,
-            MultiKahaDBPersistenceAdapter multiAdapter) throws Exception {
+            final MultiKahaDBPersistenceAdapter multiAdapter, final String queuePattern,
+            final String topicPattern) throws Exception {
 
         try {
             multiAdapter.start();
@@ -184,8 +191,8 @@ public class Exporter {
 
             xmlMarshaller.appendMessagesElement();
             for (KahaDBExporter dbExporter : dbExporters) {
-                dbExporter.exportQueues();
-                dbExporter.exportTopics();
+                dbExporter.exportQueues(queuePattern);
+                dbExporter.exportTopics(topicPattern);
             }
             xmlMarshaller.appendEndElement();
         } finally {
@@ -194,7 +201,7 @@ public class Exporter {
     }
 
     private static void appendKahaDbStore(final ArtemisJournalMarshaller xmlMarshaller,
-            KahaDBPersistenceAdapter adapter) throws Exception {
+            final KahaDBPersistenceAdapter adapter, final String queuePattern, final String topicPattern) throws Exception {
 
         try {
             adapter.start();
@@ -207,8 +214,8 @@ public class Exporter {
             dbExporter.exportMetadata();
             xmlMarshaller.appendEndElement();
             xmlMarshaller.appendMessagesElement();
-            dbExporter.exportQueues();
-            dbExporter.exportTopics();
+            dbExporter.exportQueues(queuePattern);
+            dbExporter.exportTopics(topicPattern);
             xmlMarshaller.appendEndElement();
         } finally {
             adapter.stop();

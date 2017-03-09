@@ -18,6 +18,7 @@ package org.apache.activemq.cli.kahadb.exporter;
 
 import java.io.File;
 
+import org.apache.activemq.cli.kahadb.exporter.ExportConfiguration.ExportConfigurationBuilder;
 import org.apache.activemq.store.PersistenceAdapter;
 import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 
@@ -32,7 +33,7 @@ public class KahaDbExporterTest extends ExporterTest {
     }
 
     @Override
-    public void exportStore(File kahaDbDir, File xmlFile) throws Exception {
-        Exporter.exportKahaDbStore(kahaDbDir, xmlFile);
+    public void exportStore(final ExportConfigurationBuilder builder) throws Exception {
+        Exporter.exportStore(builder.build());
     }
 }
