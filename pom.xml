@@ -167,6 +167,7 @@
 
   <modules>
     <module>activemq-kahadb-exporter</module>
+    <module>assembly</module>
   </modules>
 
   <profiles>

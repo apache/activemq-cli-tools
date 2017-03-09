@@ -79,7 +79,7 @@ public class Exporter {
         @Option(name = {"--qp", "--queuePattern"}, type = OptionType.COMMAND, description = "Queue Export Pattern")
         public String queuePattern;
 
-        @Option(name = {"--tp", "--queuePattern"}, type = OptionType.COMMAND, description = "Topic Export Pattern")
+        @Option(name = {"--tp", "--topicPattern"}, type = OptionType.COMMAND, description = "Topic Export Pattern")
         public String topicPattern;
 
         @Option(name = "-c", type = OptionType.COMMAND, description = "Compress output xml file using gzip")
@@ -93,7 +93,7 @@ public class Exporter {
          */
         @Override
         public void run() {
-            LOG.info("Starting store export");
+            LOG.info("Starting KahaDB store export");
             try {
                 Exporter.exportStore(ExportConfigurationBuilder.newBuilder()
                         .setSource(new File(source))
@@ -101,9 +101,11 @@ public class Exporter {
                         .setQueuePattern(queuePattern)
                         .setTopicPattern(topicPattern)
                         .setCompress(compress)
+                        .setOverwrite(overwrite)
                         .build());
             } catch (Exception e) {
                 LOG.error(e.getMessage(), e);
+                throw new IllegalStateException(e.getMessage(), e);
             }
 
         }
@@ -118,7 +120,7 @@ public class Exporter {
          */
         @Override
         public void run() {
-            LOG.info("Exporting");
+            LOG.info("Starting MultiKahaDB store export");
             try {
                 Exporter.exportStore(ExportConfigurationBuilder.newBuilder()
                         .setMultiKaha(true)
@@ -127,9 +129,11 @@ public class Exporter {
                         .setQueuePattern(queuePattern)
                         .setTopicPattern(topicPattern)
                         .setCompress(compress)
+                        .setOverwrite(overwrite)
                         .build());
             } catch (Exception e) {
                 LOG.error(e.getMessage(), e);
+                throw new IllegalStateException(e.getMessage(), e);
             }
 
         }
@@ -137,7 +141,7 @@ public class Exporter {
 
     public static void exportStore(final ExportConfiguration config) throws Exception {
 
-        if (config.getTarget().exists()) {
+        if (!config.isOverwrite() && config.getTarget().exists()) {
             throw new IllegalStateException("File: " + config.getTarget() + " already exists");
         }
 
