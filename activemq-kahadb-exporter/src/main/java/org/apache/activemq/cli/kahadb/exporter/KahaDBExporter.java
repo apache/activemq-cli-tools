@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.activemq.artemis.utils.SizeFormatterUtil;
 import org.apache.activemq.command.ActiveMQDestination;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.activemq.command.ActiveMQTopic;
@@ -91,15 +92,20 @@ public class KahaDBExporter implements MessageStoreExporter {
 
         // loop through all queues and export them
         for (final ActiveMQDestination destination : destinations) {
-
-            LOG.info("Starting export of: " + destination);
             final MessageStore messageStore = destination.isQueue() ?
                     adapter.createQueueMessageStore((ActiveMQQueue) destination) :
                     adapter.createTopicMessageStore((ActiveMQTopic) destination);
 
             try {
+                messageStore.start();
+
+                LOG.info("Starting export of: {}; message count: {} message(s); message size: {}", destination,
+                        messageStore.getMessageCount(), SizeFormatterUtil.sizeof(
+                                messageStore.getMessageSize()));
+
                 // migrate the data
                 messageStore.recover(recoveryListener);
+                messageStore.stop();
             } catch (Exception e) {
                 IOExceptionSupport.create(e);
             }

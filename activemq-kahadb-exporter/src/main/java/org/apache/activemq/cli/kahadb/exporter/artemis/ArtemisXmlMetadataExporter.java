@@ -25,7 +25,6 @@ import org.apache.activemq.cli.kahadb.exporter.MessageStoreMetadataExporter;
 import org.apache.activemq.cli.schema.QueueBindingType;
 import org.apache.activemq.command.ActiveMQTopic;
 import org.apache.activemq.command.SubscriptionInfo;
-import org.apache.activemq.store.kahadb.KahaDBPersistenceAdapter;
 import org.apache.activemq.store.kahadb.KahaDBStore;
 
 public class ArtemisXmlMetadataExporter implements MessageStoreMetadataExporter {
