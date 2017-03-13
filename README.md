@@ -51,6 +51,16 @@ OPTIONS
             Topic Export Pattern
 ```
 
-###Example:###
+###Examples:###
+
+Export entire store:
 
 `./bin/export kahadb --source /some/directory/kahadb/ --target ~/some/directory/output.xml`
+
+Export entire store and compress the resulting xml:
+
+`./bin/export kahadb --source /some/directory/kahadb/ --target ~/some/directory/output.xml -c`
+
+Export all topics but only queues matching pattern:
+
+`./bin/export kahadb --qp test.queue.> --source /some/directory/kahadb/ --target ~/some/directory/output.xml`
