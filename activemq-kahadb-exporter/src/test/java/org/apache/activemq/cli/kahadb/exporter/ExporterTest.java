@@ -209,7 +209,53 @@ public abstract class ExporterTest {
     }
 
     @Test
-    public void testExportTopics() throws Exception {
+    public void testExportTopicsPatternEmpty() throws Exception {
+        File kahaDbDir = storeFolder.newFolder();
+
+        ActiveMQTopic topic = new ActiveMQTopic("test.topic");
+        PersistenceAdapter adapter = getPersistenceAdapter(kahaDbDir);
+        adapter.start();
+        TopicMessageStore messageStore = adapter.createTopicMessageStore(topic);
+        messageStore.start();
+
+        SubscriptionInfo sub1 = new SubscriptionInfo("clientId1", "sub1");
+        sub1.setDestination(topic);
+        messageStore.addSubscription(sub1, false);
+
+        IdGenerator id = new IdGenerator();
+        ConnectionContext context = new ConnectionContext();
+        for (int i = 0; i < 5; i++) {
+            ActiveMQTextMessage message = new ActiveMQTextMessage();
+            message.setText("Test");
+            message.setProperty("MyStringProperty", "abc");
+            message.setProperty("MyIntegerProperty", 1);
+            message.setDestination(topic);
+            message.setMessageId(new MessageId(id.generateId() + ":1", i));
+            messageStore.addMessage(context, message);
+        }
+
+        adapter.stop();
+
+        //should be empty as no messages match empty.>
+        File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
+        exportStore(ExportConfigurationBuilder.newBuilder()
+                .setTopicPattern("empty.>")
+                .setSource(kahaDbDir)
+                .setTarget(xmlFile));
+        validate(xmlFile, 0);
+    }
+
+    @Test
+    public void testExportTopicsAll() throws Exception {
+        testExportTopics(null);
+    }
+
+    @Test
+    public void testExportTopicsPattern() throws Exception {
+        testExportTopics("test.>");
+    }
+
+    protected void testExportTopics(String pattern) throws Exception {
 
         File kahaDbDir = storeFolder.newFolder();
 
@@ -248,10 +294,11 @@ public abstract class ExporterTest {
 
         File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
         exportStore(ExportConfigurationBuilder.newBuilder()
+                .setTopicPattern(pattern)
                 .setSource(kahaDbDir)
                 .setTarget(xmlFile));
 
-        printFile(xmlFile);
+       // printFile(xmlFile);
 
         validate(xmlFile, 5);
 
@@ -386,7 +433,7 @@ public abstract class ExporterTest {
         assertEquals(count, read.getValue().getMessages().getMessage().size());
     }
 
-    private void printFile(File file) throws IOException {
+    protected void printFile(File file) throws IOException {
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line = null;
             while ((line = br.readLine()) != null) {
