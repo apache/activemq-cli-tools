@@ -8,7 +8,7 @@ useful for users of the ActiveMQ and ActiveMQ Artemis messaging brokers
 
 This tool can be used to export a KahaDB or MultiKahaDB store to Artemis XML format.  The resulting XML document can then be imported into an Artemis broker using the Artemis CLI tool.  See [Artemis CLI tool](https://activemq.apache.org/artemis/docs/1.5.3/tools.html)
 
-###Usage###
+### Usage
 ```
 $ ./bin/export help
 usage: export <command> [<args>]
@@ -51,7 +51,7 @@ OPTIONS
             Topic Export Pattern
 ```
 
-###Examples:###
+### Examples:
 
 Export entire store:
 
