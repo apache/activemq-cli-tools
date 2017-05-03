@@ -49,7 +49,7 @@
           <execution>
             <id>source</id>
             <configuration>
-              <descriptor>src/main/resources/unix-bin.xml</descriptor>
+              <descriptor>src/main/resources/descriptors/unix-bin.xml</descriptor>
               <tarLongFileMode>posix</tarLongFileMode>
             </configuration>
             <phase>package</phase>
