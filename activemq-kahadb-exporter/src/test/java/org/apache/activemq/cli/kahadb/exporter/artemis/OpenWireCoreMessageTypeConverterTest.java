@@ -19,7 +19,7 @@ package org.apache.activemq.cli.kahadb.exporter.artemis;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import org.apache.activemq.artemis.cli.commands.tools.XmlDataConstants;
+import org.apache.activemq.artemis.cli.commands.tools.xml.XmlDataConstants;
 import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.apache.activemq.broker.ConnectionContext;
 import org.apache.activemq.cli.schema.MessageType;
@@ -131,7 +131,7 @@ public class OpenWireCoreMessageTypeConverterTest {
         MessageType messageType = c.convert(message);
 
         assertEquals(XmlDataConstants.TEXT_TYPE_PRETTY, messageType.getType());
-        assertEquals(ActiveMQDestination.createQueueNameForDurableSubscription(true, "clientId", "subName"),
+        assertEquals(ActiveMQDestination.createQueueNameForSubscription(true, "clientId", "subName").toString(),
                 messageType.getQueues().getQueue().get(0).getName());
     }
 }

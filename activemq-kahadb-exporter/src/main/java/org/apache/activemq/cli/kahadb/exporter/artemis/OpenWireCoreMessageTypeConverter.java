@@ -17,9 +17,11 @@
 package org.apache.activemq.cli.kahadb.exporter.artemis;
 
 import org.apache.activemq.artemis.api.core.ICoreMessage;
-import org.apache.activemq.artemis.cli.commands.tools.XmlDataExporterUtil;
+import org.apache.activemq.artemis.cli.commands.tools.xml.XmlDataExporterUtil;
+import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.protocol.openwire.OpenWireMessageConverter;
 import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
+import org.apache.activemq.cli.kahadb.exporter.ExportConfiguration;
 import org.apache.activemq.cli.kahadb.exporter.OpenWireExportConverter;
 import org.apache.activemq.cli.schema.BodyType;
 import org.apache.activemq.cli.schema.MessageType;
@@ -38,7 +40,9 @@ import org.apache.activemq.store.kahadb.KahaDBUtil;
  */
 public class OpenWireCoreMessageTypeConverter implements OpenWireExportConverter<MessageType> {
 
-    private final OpenWireMessageConverter converter = new OpenWireMessageConverter(new OpenWireFormat());
+    private final OpenWireMessageConverter converter = new OpenWireMessageConverter();
+    private final OpenWireFormat openWireFormat = new OpenWireFormat();
+    private final CoreMessageObjectPools coreMessageObjectPools = new CoreMessageObjectPools();
     private final KahaDBStore store;
 
     /**
@@ -58,7 +62,7 @@ public class OpenWireCoreMessageTypeConverter implements OpenWireExportConverter
      */
     @Override
     public MessageType convert(final Message message) throws Exception {
-        final ICoreMessage serverMessage = (ICoreMessage) converter.inbound(message);
+        final ICoreMessage serverMessage = (ICoreMessage) converter.inbound(message, openWireFormat, coreMessageObjectPools);
         final MessageType messageType = convertAttributes(serverMessage);
 
         try {
@@ -103,8 +107,8 @@ public class OpenWireCoreMessageTypeConverter implements OpenWireExportConverter
 
             KahaDBUtil.getUnackedSubscriptions(store, message).forEach(sub -> {
                 queuesBuilder.addQueue(QueueType.builder().withName(
-                        ActiveMQDestination.createQueueNameForDurableSubscription(
-                        true, sub.getClientId(), sub.getSubcriptionName())).build());
+                        ActiveMQDestination.createQueueNameForSubscription(
+                        true, sub.getClientId(), sub.getSubcriptionName()).toString()).build());
             });
 
             return queuesBuilder.build();
@@ -112,7 +116,7 @@ public class OpenWireCoreMessageTypeConverter implements OpenWireExportConverter
     }
 
     private BodyType convertBody(final ICoreMessage serverMessage) throws Exception {
-        String value = XmlDataExporterUtil.encodeMessageBody(serverMessage);
+        String value = XmlDataExporterUtil.encodeMessageBodyBase64(serverMessage);
 
         //requires CDATA
         return BodyType.builder()

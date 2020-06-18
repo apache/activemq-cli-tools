@@ -29,7 +29,7 @@ import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
-import org.apache.activemq.artemis.cli.commands.tools.XmlDataConstants;
+import org.apache.activemq.artemis.cli.commands.tools.xml.XmlDataConstants;
 import org.apache.activemq.cli.schema.ActivemqJournalType;
 import org.apache.activemq.cli.schema.AddressBindingType;
 import org.apache.activemq.cli.schema.MessageType;

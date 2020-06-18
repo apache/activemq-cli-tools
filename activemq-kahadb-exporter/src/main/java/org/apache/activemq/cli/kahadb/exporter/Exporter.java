@@ -88,6 +88,9 @@ public class Exporter {
         @Option(name = "-f", type = OptionType.COMMAND, description = "Force XML output and overwrite existing file")
         public boolean overwrite;
 
+        @Option(name = {"--vt", "--virtualTopicConsumerWildcards"}, type = OptionType.COMMAND, description = "Virtual Topic Consumer Pattern list")
+        public String virtualTopicConsumerWildcards;
+
         /* (non-Javadoc)
          * @see java.lang.Runnable#run()
          */
@@ -100,6 +103,7 @@ public class Exporter {
                         .setTarget(new File(target))
                         .setQueuePattern(queuePattern)
                         .setTopicPattern(topicPattern)
+                        .setVirtualTopicConsumerWildcards(virtualTopicConsumerWildcards)
                         .setCompress(compress)
                         .setOverwrite(overwrite)
                         .build());
@@ -128,6 +132,7 @@ public class Exporter {
                         .setTarget(new File(target))
                         .setQueuePattern(queuePattern)
                         .setTopicPattern(topicPattern)
+                        .setVirtualTopicConsumerWildcards(virtualTopicConsumerWildcards)
                         .setCompress(compress)
                         .setOverwrite(overwrite)
                         .build());
@@ -155,11 +160,9 @@ public class Exporter {
             xmlMarshaller.appendJournalOpen();
 
             if (config.isMultiKaha()) {
-                appendMultiKahaDbStore(xmlMarshaller, getMultiKahaDbAdapter(config.getSource()),
-                        config.getQueuePattern(), config.getTopicPattern());
+                appendMultiKahaDbStore(xmlMarshaller, getMultiKahaDbAdapter(config.getSource()), config);
             } else {
-                appendKahaDbStore(xmlMarshaller, getKahaDbAdapter(config.getSource()),
-                        config.getQueuePattern(), config.getTopicPattern());
+                appendKahaDbStore(xmlMarshaller, getKahaDbAdapter(config.getSource()), config);
             }
 
             xmlMarshaller.appendJournalClose(true);
@@ -172,9 +175,7 @@ public class Exporter {
 
 
     private static void appendMultiKahaDbStore(final ArtemisJournalMarshaller xmlMarshaller,
-            final MultiKahaDBPersistenceAdapter multiAdapter, final String queuePattern,
-            final String topicPattern) throws Exception {
-
+            final MultiKahaDBPersistenceAdapter multiAdapter, final ExportConfiguration config) throws Exception {
         try {
             multiAdapter.start();
 
@@ -183,7 +184,7 @@ public class Exporter {
                     .map(adapter -> {
                         KahaDBPersistenceAdapter kahaAdapter = (KahaDBPersistenceAdapter) adapter;
                         return new KahaDBExporter(kahaAdapter,
-                              new ArtemisXmlMetadataExporter(kahaAdapter.getStore(), xmlMarshaller),
+                              new ArtemisXmlMetadataExporter(kahaAdapter.getStore(), xmlMarshaller, config),
                               new ArtemisXmlMessageRecoveryListener(kahaAdapter.getStore(), xmlMarshaller));
             }).collect(Collectors.toList());
 
@@ -195,8 +196,8 @@ public class Exporter {
 
             xmlMarshaller.appendMessagesElement();
             for (KahaDBExporter dbExporter : dbExporters) {
-                dbExporter.exportQueues(queuePattern);
-                dbExporter.exportTopics(topicPattern);
+                dbExporter.exportQueues(config.getQueuePattern());
+                dbExporter.exportTopics(config.getTopicPattern());
             }
             xmlMarshaller.appendEndElement();
         } finally {
@@ -205,21 +206,21 @@ public class Exporter {
     }
 
     private static void appendKahaDbStore(final ArtemisJournalMarshaller xmlMarshaller,
-            final KahaDBPersistenceAdapter adapter, final String queuePattern, final String topicPattern) throws Exception {
+            final KahaDBPersistenceAdapter adapter, final ExportConfiguration config) throws Exception {
 
         try {
             adapter.start();
 
             final KahaDBExporter dbExporter = new KahaDBExporter(adapter,
-                    new ArtemisXmlMetadataExporter(adapter.getStore(), xmlMarshaller),
+                    new ArtemisXmlMetadataExporter(adapter.getStore(), xmlMarshaller, config),
                     new ArtemisXmlMessageRecoveryListener(adapter.getStore(), xmlMarshaller));
 
             xmlMarshaller.appendBindingsElement();
             dbExporter.exportMetadata();
             xmlMarshaller.appendEndElement();
             xmlMarshaller.appendMessagesElement();
-            dbExporter.exportQueues(queuePattern);
-            dbExporter.exportTopics(topicPattern);
+            dbExporter.exportQueues(config.getQueuePattern());
+            dbExporter.exportTopics(config.getTopicPattern());
             xmlMarshaller.appendEndElement();
         } finally {
             adapter.stop();

@@ -33,7 +33,9 @@ import javax.jms.BytesMessage;
 import javax.jms.Connection;
 import javax.jms.MapMessage;
 import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
+import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.StreamMessage;
 import javax.jms.TextMessage;
@@ -42,8 +44,10 @@ import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 
+import org.apache.activemq.artemis.api.core.QueueConfiguration;
+import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
-import org.apache.activemq.artemis.cli.commands.tools.XmlDataImporter;
+import org.apache.activemq.artemis.cli.commands.tools.xml.XmlDataImporter;
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyAcceptorFactory;
@@ -51,6 +55,7 @@ import org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnectorFactor
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
 import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
+import org.apache.activemq.artemis.utils.CompositeAddress;
 import org.apache.activemq.broker.ConnectionContext;
 import org.apache.activemq.cli.kahadb.exporter.ExportConfiguration.ExportConfigurationBuilder;
 import org.apache.activemq.cli.schema.ActivemqJournalType;
@@ -90,6 +95,129 @@ public abstract class ExporterTest {
     @Test
     public void testExportQueuesPattern() throws Exception {
         testExportQueues("test.>");
+    }
+
+    @Test
+    public void testExportVTQueueAsDurableSub() throws Exception {
+        File sourceDir = storeFolder.newFolder();
+        ActiveMQQueue queueA = new ActiveMQQueue("Consumer.A.VirtualTopic.T");
+        ActiveMQQueue queueB = new ActiveMQQueue("Consumer.B.VirtualTopic.T");
+
+        PersistenceAdapter adapter = getPersistenceAdapter(sourceDir);
+        adapter.start();
+        MessageStore messageStoreA = adapter.createQueueMessageStore(queueA);
+        MessageStore messageStoreB = adapter.createQueueMessageStore(queueB);
+        messageStoreA.start();
+        messageStoreB.start();
+
+        // publish messages
+        MessageId first = null;
+        IdGenerator id = new IdGenerator();
+        ConnectionContext context = new ConnectionContext();
+        for (int i = 0; i < 5; i++) {
+            ActiveMQTextMessage message = new ActiveMQTextMessage();
+            message.setText("Test");
+            message.setProperty("MyStringProperty", "abc");
+            message.setProperty("MyIntegerProperty", 1);
+            message.setMessageId(new MessageId(id.generateId() + ":1", i));
+
+            message.setDestination(queueA);
+            messageStoreA.addMessage(context, message);
+
+            message.setDestination(queueB);
+            messageStoreB.addMessage(context, message);
+
+            if (i == 0) {
+                first = message.getMessageId();
+            }
+        }
+
+        //ack for subA only
+        MessageAck ack = new MessageAck();
+        ack.setAckType(MessageAck.STANDARD_ACK_TYPE);
+        ack.setLastMessageId(first);
+        messageStoreA.removeMessage(context,ack);
+
+        adapter.stop();
+
+        File xmlFile = new File(storeFolder.getRoot().getAbsoluteFile(), "outputXml.xml");
+        exportStore(ExportConfigurationBuilder.newBuilder().setSource(sourceDir).setTarget(xmlFile).setVirtualTopicConsumerWildcards("Consumer.*.>;2"));
+
+        printFile(xmlFile);
+
+        validate(xmlFile, 9);
+
+        final ActiveMQServer artemisServer = buildArtemisBroker();
+        artemisServer.start();
+        artemisServer.getManagementService().enableNotifications(false);
+
+        XmlDataImporter dataImporter = new XmlDataImporter();
+        dataImporter.process(xmlFile.getAbsolutePath(), "localhost", 61400, false);
+
+        ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("tcp://localhost:61400");
+
+        Connection connection = null;
+        try {
+
+            connection = cf.createConnection();
+            connection.start();
+
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+            Queue fqqnA = session.createQueue(CompositeAddress.toFullyQualified("VirtualTopic.T", "Consumer.A.VirtualTopic.T"));
+            MessageConsumer messageConsumerA = session.createConsumer(fqqnA);
+
+            Queue fqqnB = session.createQueue(CompositeAddress.toFullyQualified("VirtualTopic.T", "Consumer.B.VirtualTopic.T"));
+            MessageConsumer messageConsumerB = session.createConsumer(fqqnB);
+
+            for (int i = 0; i < 5; i++) {
+                if (i < 4) {
+                    TextMessage messageReceived = (TextMessage) messageConsumerA.receive(1000);
+                    assertNotNull(messageReceived);
+                    assertEquals("abc", messageReceived.getStringProperty("MyStringProperty"));
+                    assertEquals("Test", messageReceived.getText());
+
+                    messageReceived = (TextMessage) messageConsumerB.receive(1000);
+                    assertNotNull(messageReceived);
+                    assertEquals("abc", messageReceived.getStringProperty("MyStringProperty"));
+                    assertEquals("Test", messageReceived.getText());
+
+                } else {
+                    // just subB gets this
+                    TextMessage messageReceived = (TextMessage) messageConsumerA.receive(100);
+                    assertNull(messageReceived);
+
+                    messageReceived = (TextMessage) messageConsumerB.receive(1000);
+                    assertNotNull(messageReceived);
+                    assertEquals("abc", messageReceived.getStringProperty("MyStringProperty"));
+                    assertEquals("Test", messageReceived.getText());
+                }
+            }
+
+            // verify durable topic sub semantics
+            // there is no auto create on core for a FQQN consumer so we need to configure before consumer creation!!
+            artemisServer.createQueue(new QueueConfiguration("Consumer.C.VirtualTopic.T").setAddress("VirtualTopic.T").setRoutingType(RoutingType.MULTICAST));
+            Queue fqqnC = session.createQueue(CompositeAddress.toFullyQualified("VirtualTopic.T", "Consumer.C.VirtualTopic.T"));
+            MessageConsumer messageConsumerC = session.createConsumer(fqqnC);
+
+            MessageProducer messageProducer = session.createProducer(session.createTopic("VirtualTopic.T"));
+            messageProducer.send(session.createTextMessage());
+
+            // consume from both subs
+            TextMessage messageReceived = (TextMessage) messageConsumerA.receive(1000);
+            assertNotNull(messageReceived);
+            messageReceived = (TextMessage) messageConsumerB.receive(1000);
+            assertNotNull(messageReceived);
+            messageReceived = (TextMessage) messageConsumerC.receive(1000);
+            assertNotNull(messageReceived);
+
+        } finally {
+            if (connection != null) {
+                connection.close();
+            }
+            cf.close();
+        }
+        artemisServer.stop();
     }
 
     /**
@@ -242,6 +370,7 @@ public abstract class ExporterTest {
                 .setTopicPattern("empty.>")
                 .setSource(kahaDbDir)
                 .setTarget(xmlFile));
+        printFile(xmlFile);
         validate(xmlFile, 0);
     }
 
@@ -279,6 +408,7 @@ public abstract class ExporterTest {
             message.setText("Test");
             message.setProperty("MyStringProperty", "abc");
             message.setProperty("MyIntegerProperty", 1);
+            message.setProperty("MyIntegerPropertyId", i+1);
             message.setDestination(topic);
             message.setMessageId(new MessageId(id.generateId() + ":1", i));
             messageStore.addMessage(context, message);
@@ -326,7 +456,7 @@ public abstract class ExporterTest {
             for (int i = 0; i < 5; i++) {
                 TextMessage messageReceived1 = (TextMessage) messageConsumer.receive(1000);
                 if (i < 4) {
-                    assertNotNull(messageReceived1);
+                    assertNotNull("@" + i, messageReceived1);
                 } else {
                     assertNull(messageReceived1);
                 }

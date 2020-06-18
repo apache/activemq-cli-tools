@@ -17,6 +17,14 @@
 package org.apache.activemq.cli.kahadb.exporter;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.activemq.artemis.utils.CompositeAddress;
+import org.apache.activemq.command.ActiveMQDestination;
+import org.apache.activemq.command.ActiveMQQueue;
+import org.apache.activemq.filter.DestinationFilter;
+import org.apache.activemq.filter.DestinationPath;
 
 public class ExportConfiguration {
 
@@ -33,6 +41,8 @@ public class ExportConfiguration {
     private boolean compress;
 
     private boolean overwrite;
+
+    private final Map<DestinationFilter, Integer> vtConsumerDestinationMatchers = new HashMap<>();
 
     public File getSource() {
         return source;
@@ -90,6 +100,49 @@ public class ExportConfiguration {
         this.overwrite = overwrite;
     }
 
+    public void setVirtualTopicConsumerWildcards(String virtualTopicConsumerWildcards) {
+        if (virtualTopicConsumerWildcards != null) {
+            for (String filter : virtualTopicConsumerWildcards.split(",")) {
+                String[] wildcardLimitPair = filter.split(";");
+                vtConsumerDestinationMatchers.put(DestinationFilter.parseFilter(new ActiveMQQueue(wildcardLimitPair[0])), Integer.valueOf(wildcardLimitPair[1]));
+            }
+        }
+    }
+
+    public ActiveMQDestination mapToDurableSubFQQN(ActiveMQDestination destination) {
+
+        if (vtConsumerDestinationMatchers.isEmpty()) {
+            return destination;
+        }
+
+        for (Map.Entry<DestinationFilter, Integer> candidate : vtConsumerDestinationMatchers.entrySet()) {
+            if (candidate.getKey().matches(destination)) {
+                // convert to matching FQQN
+                String[] paths = DestinationPath.getDestinationPaths(destination);
+                StringBuilder fqqn = new StringBuilder();
+                int filterPathTerminus = candidate.getValue();
+                // address - ie: topic
+                for (int i = filterPathTerminus; i < paths.length; i++) {
+                    if (i > filterPathTerminus) {
+                        fqqn.append(ActiveMQDestination.PATH_SEPERATOR);
+                    }
+                    fqqn.append(paths[i]);
+                }
+                fqqn.append(CompositeAddress.SEPARATOR);
+                // consumer queue - the full vt queue
+                for (int i = 0; i < paths.length; i++) {
+                    if (i > 0) {
+                        fqqn.append(ActiveMQDestination.PATH_SEPERATOR);
+                    }
+                    fqqn.append(paths[i]);
+                }
+                // no need for a cache as this is called once per destination on metadata export
+                return new ActiveMQQueue(fqqn.toString());
+            }
+        }
+        return destination;
+    }
+
     public static class ExportConfigurationBuilder {
 
         private final ExportConfiguration config = new ExportConfiguration();
@@ -137,5 +190,9 @@ public class ExportConfiguration {
             return config;
         }
 
+        public ExportConfigurationBuilder setVirtualTopicConsumerWildcards(String virtualTopicConsumerWildcards) {
+            config.setVirtualTopicConsumerWildcards(virtualTopicConsumerWildcards);
+            return this;
+        }
     }
 }

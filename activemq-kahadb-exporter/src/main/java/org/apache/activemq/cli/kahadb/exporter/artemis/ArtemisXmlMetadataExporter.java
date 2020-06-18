@@ -20,7 +20,9 @@ import java.io.IOException;
 
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
+import org.apache.activemq.artemis.utils.CompositeAddress;
 import org.apache.activemq.cli.artemis.schema.ArtemisJournalMarshaller;
+import org.apache.activemq.cli.kahadb.exporter.ExportConfiguration;
 import org.apache.activemq.cli.kahadb.exporter.MessageStoreMetadataExporter;
 import org.apache.activemq.cli.schema.QueueBindingType;
 import org.apache.activemq.command.ActiveMQTopic;
@@ -31,16 +33,18 @@ public class ArtemisXmlMetadataExporter implements MessageStoreMetadataExporter 
 
     private final KahaDBStore store;
     private final ArtemisJournalMarshaller xmlMarshaller;
+    private final ExportConfiguration config;
 
 
     /**
      * @param xmlMarshaller
      */
     public ArtemisXmlMetadataExporter(final KahaDBStore store,
-            final ArtemisJournalMarshaller xmlMarshaller) {
+            final ArtemisJournalMarshaller xmlMarshaller, final ExportConfiguration config) {
         super();
         this.store = store;
         this.xmlMarshaller = xmlMarshaller;
+        this.config = config;
     }
 
     @Override
@@ -49,16 +53,24 @@ public class ArtemisXmlMetadataExporter implements MessageStoreMetadataExporter 
         .forEach(dest -> {
             try {
                 if (dest.isQueue()) {
-                    xmlMarshaller.appendBinding(QueueBindingType.builder()
-                            .withName(dest.getPhysicalName())
-                            .withRoutingType(RoutingType.ANYCAST.toString())
-                            .withAddress(dest.getPhysicalName()).build());
+                    org.apache.activemq.command.ActiveMQDestination mappedToFQQN = config.mapToDurableSubFQQN(dest);
+                    if (dest != mappedToFQQN) {
+                        xmlMarshaller.appendBinding(QueueBindingType.builder()
+                                                       .withName(CompositeAddress.extractQueueName(mappedToFQQN.getPhysicalName()))
+                                                       .withRoutingType(RoutingType.MULTICAST.toString())
+                                                       .withAddress(CompositeAddress.extractAddressName(mappedToFQQN.getPhysicalName())).build());
+                    } else {
+                        xmlMarshaller.appendBinding(QueueBindingType.builder()
+                                                       .withName(dest.getPhysicalName())
+                                                       .withRoutingType(RoutingType.ANYCAST.toString())
+                                                       .withAddress(dest.getPhysicalName()).build());
+                    }
                 } else if (dest.isTopic()) {
                         for (SubscriptionInfo info :
                             store.createTopicMessageStore((ActiveMQTopic) dest).getAllSubscriptions()) {
                             xmlMarshaller.appendBinding(QueueBindingType.builder()
-                                    .withName(ActiveMQDestination.createQueueNameForDurableSubscription(
-                                            true, info.getClientId(), info.getSubcriptionName()))
+                                    .withName(ActiveMQDestination.createQueueNameForSubscription(
+                                            true, info.getClientId(), info.getSubcriptionName()).toString())
                                     .withRoutingType(RoutingType.MULTICAST.toString())
                                     .withAddress(dest.getPhysicalName()).build());
                         }
