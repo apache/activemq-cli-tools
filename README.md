@@ -30,6 +30,7 @@ SYNOPSIS
                 [(--qp <queuePattern> | --queuePattern <queuePattern>)]
                 (-s <source> | --source <source>) (-t <target> | --target <target>)
                 [(--tp <topicPattern> | --topicPattern <topicPattern>)]
+                [(--vt <virtualTopicConsumerWildcards> | --virtualTopicConsumerWildcards <virtualTopicConsumerWildcards>)]
 
 OPTIONS
         -c
@@ -49,6 +50,9 @@ OPTIONS
 
         --tp <topicPattern>, --topicPattern <topicPattern>
             Topic Export Pattern
+
+        --vt <virtualTopicConsumerWildcards>, --virtualTopicConsumerWildcards <virtualTopicConsumerWildcards>
+            Virtual Topic Consumer Pattern list
 ```
 
 ### Examples:
@@ -64,3 +68,7 @@ Export entire store and compress the resulting xml:
 Export all topics but only queues matching pattern:
 
 `./bin/export kahadb --qp test.queue.> --source /some/directory/kahadb/ --target ~/some/directory/output.xml`
+
+Export entire store and migrate matching VirtualTopic consumer queues to durable subscriptions:
+
+`./bin/export kahadb --source /some/directory/kahadb/ --target ~/some/directory/output.xml --virtualTopicConsumerWildcards "Consumer.*.>;2"`
