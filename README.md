@@ -78,7 +78,7 @@ Export entire store and migrate matching VirtualTopic consumer queues to durable
 
 The official binary distribution for UNIX can be found via apache mirrors:
 
-##ActiveMQ Client Tools 0.2.0 (July 24 2020)
+### ActiveMQ Client Tools 0.2.0 (July 24 2020)
 
 |||||
 |---|---|---|---|
