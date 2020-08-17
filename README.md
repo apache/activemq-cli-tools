@@ -72,3 +72,17 @@ Export all topics but only queues matching pattern:
 Export entire store and migrate matching VirtualTopic consumer queues to durable subscriptions:
 
 `./bin/export kahadb --source /some/directory/kahadb/ --target ~/some/directory/output.xml --virtualTopicConsumerWildcards "Consumer.*.>;2"`
+
+
+### Download:
+
+The official binary distribution for UNIX can be found via apache mirrors:
+
+##ActiveMQ Client Tools 0.2.0 (July 24 2020)
+
+|||||
+|---|---|---|---|
+|Unix/Linux/Cygwin|[activemq-cli-tools-0.2.0-bin.tar.gz](https://www.apache.org/dyn/closer.cgi?filename=activemq/activemq-cli-tools/0.2.0/activemq-cli-tools-0.2.0-bin.tar.gz&action=download)|[SHA512](https://dist.apache.org/repos/dist/release/activemq/activemq-cli-tools/0.2.0/activemq-cli-tools-0.2.0-bin.tar.gz.sha512)|[GPG Signature](https://dist.apache.org/repos/dist/release/activemq/activemq-cli-tools/0.2.0/activemq-cli-tools-0.2.0-bin.tar.gz.asc)|
+|Source Code Distribution|[activemq-cli-tools-parent-0.2.0-source-release.zip](https://www.apache.org/dyn/closer.cgi?filename=activemq/activemq-cli-tools/0.2.0/activemq-cli-tools-parent-0.2.0-source-release.zip&action=download)|[SHA512](https://dist.apache.org/repos/dist/release/activemq/activemq-cli-tools/0.2.0/activemq-cli-tools-parent-0.2.0-source-release.zip.sha512)|[GPG Signature](https://dist.apache.org/repos/dist/release/activemq/activemq-cli-tools/0.2.0/activemq-cli-tools-parent-0.2.0-source-release.zip.asc)|
+
+The keys file for verifying the release SHA512s can be obtained [here](https://www.apache.org/dist/activemq/KEYS)
