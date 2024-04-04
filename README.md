@@ -1,12 +1,11 @@
 Apache ActiveMQ Command Line Tools
 ==================================
 
-The ActiveMQ Command Line Tools project is home to several CLI based projects
-useful for users of the ActiveMQ and ActiveMQ Artemis messaging brokers
+The ActiveMQ Command Line Tools project is home to several CLI based projects useful for users of the ActiveMQ Classic and ActiveMQ Artemis messaging brokers
 
 ## ActiveMQ KahaDB Export Tool
 
-This tool can be used to export a KahaDB or MultiKahaDB store to Artemis XML format.  The resulting XML document can then be imported into an Artemis broker (version 2.0.0+) using the Artemis CLI tool.  See [Artemis CLI tool](https://activemq.apache.org/artemis/docs/2.0.0/tools.html)
+This tool can be used to export a KahaDB or MultiKahaDB store to Artemis' XML format. The resulting XML document can then be imported into an Artemis broker (version 2.0.0+) using the Artemis CLI tool.  See [Artemis CLI tool](https://activemq.apache.org/components/artemis/documentation/latest/data-tools.html#data-tools)
 
 ### Usage
 ```
